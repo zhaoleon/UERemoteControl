@@ -27,11 +27,12 @@ void SRCProtocolMask::Construct(const FArguments& InArgs, TWeakPtr<FRemoteContro
 
 bool SRCProtocolMask::CanBeMasked() const
 {
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	if (TSharedPtr<FRemoteControlField> RCField = WeakField.Pin())
 	{
 		return RCField->SupportsMasking();
 	}
-
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 	return false;
 }
 
@@ -75,10 +76,12 @@ bool SRCProtocolMask::HasOptionalMask() const
 
 ECheckBoxState SRCProtocolMask::IsMaskEnabled(ERCMask InMaskBit) const
 {
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	if (TSharedPtr<FRemoteControlField> RCField = WeakField.Pin())
 	{
 		return RCField->HasMask((ERCMask)InMaskBit) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 	}
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 	return SRCProtocolMaskTriplet::IsMaskEnabled(InMaskBit);
 }
@@ -87,6 +90,7 @@ void SRCProtocolMask::SetMaskEnabled(ECheckBoxState NewState, ERCMask NewMaskBit
 {
 	if (TSharedPtr<FRemoteControlField> RCField = WeakField.Pin())
 	{
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		if (NewState == ECheckBoxState::Checked)
 		{
 			RCField->EnableMask((ERCMask)NewMaskBit);
@@ -95,6 +99,7 @@ void SRCProtocolMask::SetMaskEnabled(ECheckBoxState NewState, ERCMask NewMaskBit
 		{
 			RCField->ClearMask((ERCMask)NewMaskBit);
 		}
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 	}
 	else
 	{

@@ -211,6 +211,14 @@ void FProtocolEntityViewModel::OnEntityUnexposed(URemoteControlPreset* InPreset,
 	{
 		if (GetId() == InEntityId)
 		{
+			for (const TSharedPtr<FProtocolBindingViewModel>& Binding : Bindings)
+			{
+				if (Binding.IsValid())
+				{
+					RemoveProtocolInternal(InPreset, Commands::FAddRemoveProtocolArgs{GetId(), NAME_None, Binding->GetId()});
+				}
+			}
+
 			Bindings.Empty();
 			OnChanged().Broadcast();
 		}
@@ -378,6 +386,11 @@ bool FProtocolEntityViewModel::IsValid() const
 {
 	return Preset.IsValid()
 			&& PropertyId.IsValid();
+}
+
+URemoteControlPreset* FProtocolEntityViewModel::GetPreset() const
+{
+	return Preset.Get();
 }
 
 void FProtocolEntityViewModel::PostUndo(bool bSuccess)

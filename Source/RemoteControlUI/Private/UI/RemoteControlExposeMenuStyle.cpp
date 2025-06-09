@@ -5,19 +5,17 @@
 #include "Styling/AppStyle.h"
 #include "Styling/CoreStyle.h"
 #include "Styling/SlateStyle.h"
+#include "Styling/SlateStyleMacros.h"
 #include "Styling/SlateStyleRegistry.h"
 #include "Styling/SlateTypes.h"
 #include "Styling/StarshipCoreStyle.h"
 #include "Styling/StyleColors.h"
+#include "Styling/SlateStyleMacros.h"
 
 #define IMAGE_PLUGIN_BRUSH( RelativePath, ... ) FSlateImageBrush(FRemoteControlExposeMenuStyle::InContent(RelativePath, ".png" ), __VA_ARGS__)
-#define IMAGE_BRUSH(RelativePath, ...) FSlateImageBrush(StyleSet->RootToContentDir(RelativePath, TEXT(".png")), __VA_ARGS__)
-#define IMAGE_BRUSH_SVG( RelativePath, ... ) FSlateVectorImageBrush(StyleSet->RootToContentDir(RelativePath, TEXT(".svg")), __VA_ARGS__)
 #define IMAGE_PLUGIN_BRUSH_SVG( RelativePath, ... ) FSlateVectorImageBrush(FRemoteControlExposeMenuStyle::InContent(RelativePath, ".svg"), __VA_ARGS__)
-#define BOX_BRUSH(RelativePath, ...) FSlateBoxBrush(StyleSet->RootToContentDir(RelativePath, TEXT(".png")), __VA_ARGS__)
-#define CORE_BOX_BRUSH( RelativePath, ... ) FSlateBoxBrush(StyleSet->RootToCoreContentDir(RelativePath, TEXT(".png") ), __VA_ARGS__)
 #define BOX_PLUGIN_BRUSH( RelativePath, ... ) FSlateBoxBrush(FRemoteControlExposeMenuStyle::InContent( RelativePath, ".png" ), __VA_ARGS__)
-#define CORE_FONT(...) FSlateFontInfo(FCoreStyle::GetDefaultFont(), __VA_ARGS__)
+#define RootToContentDir StyleSet->RootToContentDir
 
 TSharedPtr<FSlateStyleSet> FRemoteControlExposeMenuStyle::StyleSet;
 
@@ -109,7 +107,7 @@ void FRemoteControlExposeMenuStyle::Initialize()
 	StyleSet->Set("RemoteControlExposeMenu.Separator", new FSlateColorBrush(FStyleColors::White25));
 	StyleSet->Set("RemoteControlExposeMenu.Separator.Padding", FMargin(12.0f, 6.f, 12.0f, 6.f));
 
-	FSlateFontInfo XSFont(CORE_FONT(7, "Bold"));
+	FSlateFontInfo XSFont(DEFAULT_FONT("Bold", 7));
 	XSFont.LetterSpacing =  250;
 	const FTextBlockStyle SmallButtonText = FAppStyle::Get().GetWidgetStyle<FTextBlockStyle>("SmallButtonText");
 	StyleSet->Set("RemoteControlExposeMenu.Heading", FTextBlockStyle(SmallButtonText)
@@ -119,6 +117,11 @@ void FRemoteControlExposeMenuStyle::Initialize()
 
 	FSlateStyleRegistry::RegisterSlateStyle(*StyleSet.Get());
 }
+
+#undef IMAGE_PLUGIN_BRUSH
+#undef IMAGE_PLUGIN_BRUSH_SVG
+#undef BOX_PLUGIN_BRUSH
+#undef RootToContentDir
 
 void FRemoteControlExposeMenuStyle::Shutdown()
 {
@@ -146,11 +149,3 @@ FString FRemoteControlExposeMenuStyle::InContent(const FString& RelativePath, co
 	static const FString ContentDir = IPluginManager::Get().FindPlugin(TEXT("RemoteControl"))->GetBaseDir() + TEXT("/Resources");
 	return (ContentDir / RelativePath) + Extension;
 }
-
-#undef IMAGE_PLUGIN_BRUSH
-#undef IMAGE_BRUSH
-#undef IMAGE_BRUSH_SVG
-#undef BOX_BRUSH
-#undef CORE_BOX_BRUSH
-#undef BOX_PLUGIN_BRUSH
-#undef CORE_FONT

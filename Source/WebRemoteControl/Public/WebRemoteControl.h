@@ -23,7 +23,6 @@ class FWebSocketMessageHandler;
 /**
  * A Remote Control module that expose remote function calls through http
  */
-
 class WEBREMOTECONTROL_API FWebRemoteControlModule : public IWebRemoteControlModule
 {
 public:
@@ -185,7 +184,7 @@ private:
 
 	/** Routes that are editor specific. */
 	FWebRemoteControlEditorRoutes EditorRoutes;
-	
+
 	/** Handler processing websocket specific messages */
 	TUniquePtr<FWebSocketMessageHandler> WebSocketHandler;
 	

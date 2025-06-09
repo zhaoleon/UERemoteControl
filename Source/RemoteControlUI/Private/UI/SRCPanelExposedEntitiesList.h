@@ -2,50 +2,49 @@
 
 #pragma once
 
+#include "Containers/Set.h"
 #include "IRemoteControlUIModule.h"
 #include "Misc/TextFilter.h"
 #include "RemoteControlPreset.h"
 #include "SRCPanelExposedEntitiesGroup.h"
 #include "SRCPanelTreeNode.h"
+#include "UI/Filters/RCFilter.h"
+#include "UI/RCFieldGroupOrder.h"
+#include "UI/RCFieldGroupType.h"
+#include "UI/RCPanelExposedEntitiesListSettingsData.h"
+#include "UObject/ObjectKey.h"
+#include "UObject/StrongObjectPtr.h"
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Widgets/SCompoundWidget.h"
 #include "Widgets/Views/STreeView.h"
-#include "UI/Filters/RCFilter.h"
-#include "UObject/StrongObjectPtr.h"
 
-struct FRCPanelGroup;
-class FRCPanelWidgetRegistry;
+class AActor;
 class FDragDropOperation;
-struct FGuid;
+class FRCPanelWidgetRegistry;
 class FReply;
-struct FRemoteControlProperty;
-struct FRemoteControlPresetGroup;
-struct FRemoteControlFunction;
 class ITableRow;
 class SComboButton;
 class SRCHeaderRow;
 class SRCPanelFilter;
 class SRCPanelGroup;
-struct SRCPanelTreeNode;
+class SRemoteControlPanel;
 class SRemoteControlTarget;
-struct SRCPanelExposedField;
 class SSearchBox;
 class STableViewBase;
 class URemoteControlPreset;
+struct FGuid;
+struct FRCPanelGroup;
 struct FRCPanelStyle;
+struct FRemoteControlFunction;
+struct FRemoteControlPresetGroup;
+struct FRemoteControlProperty;
+struct SRCPanelExposedField;
+struct SRCPanelTreeNode;
 
 enum class EEntitiesListMode : uint8
 {
 	Default,
 	Protocols
-};
-
-/** Ordering types while grouping is active */
-enum class ERCGroupOrder
-{
-	None,
-	Ascending,
-	Descending
 };
 
 /** Holds information about a group drag and drop event  */
@@ -72,12 +71,14 @@ class SRCPanelExposedEntitiesList : public SCompoundWidget
 public:
 	SLATE_BEGIN_ARGS(SRCPanelExposedEntitiesList)
 		: _LiveMode(false)
+		, _ProtocolsMode(false)
 	{}
 		SLATE_ATTRIBUTE(bool, LiveMode)
 		SLATE_ATTRIBUTE(bool, ProtocolsMode)
 		SLATE_ATTRIBUTE(TSharedPtr<SWidget>, ExposeFunctionsComboButton)
 		SLATE_ATTRIBUTE(TSharedPtr<SWidget>, ExposeActorsComboButton)
 		SLATE_EVENT(FSimpleDelegate, OnEntityListUpdated)
+		SLATE_ARGUMENT(TSharedPtr<FUICommandList>, CommandList)
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs, URemoteControlPreset* InPreset, TWeakPtr<FRCPanelWidgetRegistry> InWidgetRegistry);
@@ -138,6 +139,8 @@ private:
 	FText HandleEntityListHeaderLabel() const;
 	/** Handles object property changes, used to update arrays correctly.  */
 	void OnObjectPropertyChange(UObject* InObject, FPropertyChangedEvent& InChangeEvent);
+	/** Called when the label of an actor has changed */
+	void OnActorLabelChanged(AActor* InActor);
 	/** Create exposed entity widgets. */
 	void GenerateListWidgets();
 	/** Create exposed entity widgets. */
@@ -190,7 +193,7 @@ private:
 	 * Called when the group type changed, if the new group type is the same as the current one it will be set to none
 	 * @param InFieldGroupType New grouping type
 	 */
-	void OnCreateFieldGroup(EFieldGroupType InFieldGroupType);
+	void OnCreateFieldGroup(ERCFieldGroupType InFieldGroupType);
 
 	/** Group fields based on the current group type (PropertyId/Owner) */
 	void CreateFieldGroup();
@@ -199,7 +202,7 @@ private:
 	 * Called when the order type changed, if the new order type is the same as the current one it will be set to none
 	 * @param InGroupOrder New group order
 	 */
-	void OnGroupOrderChanged(ERCGroupOrder InGroupOrder);
+	void OnGroupOrderChanged(ERCFieldGroupOrder InGroupOrder);
 
 	/** Order the groups based on the current order assigned (Ascending/Descending) */
 	void OrderGroups();
@@ -264,7 +267,15 @@ private:
 	/** Executed when a drag is detected, will create the Drag and Drop widget of the node(s) */
 	FReply OnNodeDragDetected(const FGeometry& InGeometry, const FPointerEvent& InPointerEvent, TSharedPtr<SRCPanelTreeNode> InNode);
 
+	/** Stores the list settings */
+	void StoreListSettings();
+
+	/** Recalls the list settings */
+	void RecallListSettings();
+
 private:
+	/** Command list to use if specified */
+	TSharedPtr<FUICommandList> CommandList;
 	/** Holds the Groups list view. */
 	TSharedPtr<SListView<TSharedPtr<SRCPanelTreeNode>>> GroupsListView;
 	/** Holds the Fields list view. */
@@ -273,14 +284,16 @@ private:
 	TArray<TSharedPtr<SRCPanelGroup>> FieldGroups;
 	/** Holds all the field entities. */
 	TArray<TSharedPtr<SRCPanelTreeNode>> FieldEntities;
+	/** Cached list of entity owners used to track whether owner changes should refresh the list*/
+	TSet<FObjectKey> CachedEntityOwners;
 	/** Cached field entities used to store the original Entities when switching groups. */
 	TArray<TSharedPtr<SRCPanelTreeNode>> CachedFieldEntities;
 	/** Holds all the exposed entities groups. */
 	TArray<TSharedPtr<SRCPanelExposedEntitiesGroup>> ExposedEntitiesGroups;
 	/** Holds the current group type */
-	EFieldGroupType CurrentGroupType = EFieldGroupType::None;
+	ERCFieldGroupType CurrentGroupType = ERCFieldGroupType::None;
 	/** Holds the current sorting type */
-	ERCGroupOrder CurrentGroupSortType = ERCGroupOrder::None;
+	ERCFieldGroupOrder CurrentGroupSortType = ERCFieldGroupOrder::None;
 	/** Holds all the entities groups currently in the list */
 	TArray<TSharedPtr<SRCPanelExposedEntitiesGroup>> FieldEntitiesGroups;
 	/** Map of field ids to field widgets. */
@@ -295,6 +308,8 @@ private:
 	FDelegateHandle OnPropertyChangedHandle;
 	/** Handle to the delegate called when a binding is added or removed. */
 	FDelegateHandle OnProtocolBindingAddedOrRemovedHandle;
+	/** Handle to the delegate called when an actor's label is renamed */
+	FDelegateHandle OnActorLabelChangedHandle;
 	/** Delegate called on selected group change. */
 	FOnSelectionChange OnSelectionChangeDelegate;
 	/** The column data shared between all tree nodes in order to share a splitter amongst all rows. */
@@ -333,7 +348,9 @@ private:
 	static TSet<FName> DefaultProtocolColumns;
 	/** Holds identifier of the selected group. */
 	FGuid CurrentlySelectedGroup;
-
+	/** Default settings for this entities list */
+	FRCPanelExposedEntitiesListSettingsData DefaultSettings;
+	
 	bool bRefreshRequested = false;
 	bool bRefreshEntitiesGroups = false;
 

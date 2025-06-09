@@ -11,6 +11,7 @@ struct FRemoteControlField;
 /**
  * A widget that represents a mask.
  */
+class UE_DEPRECATED(5.6, "SRCProtocolMask deprecated. Prefer using SRCProtocolMaskTriplet for mask widgets") SRCProtocolMask;
 class REMOTECONTROLPROTOCOLWIDGETS_API SRCProtocolMask : public SRCProtocolMaskTriplet, public IHasMaskExtensibility
 {
 public:

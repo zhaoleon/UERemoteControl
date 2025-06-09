@@ -41,7 +41,7 @@ public:
 		SLATE_EVENT(FOnGetGroupId, OnGetGroupId)
 		SLATE_EVENT(FOnDeleteGroup, OnDeleteGroup)
 		SLATE_ATTRIBUTE(bool, LiveMode)
-		
+		SLATE_ARGUMENT(TSharedPtr<FUICommandList>, CommandList)
 	SLATE_END_ARGS()
 
 	void Tick(const FGeometry&, const double, const float);
@@ -88,6 +88,8 @@ private:
 	const FSlateBrush* HandleGroupColor() const;
 
 private:
+	/** Command list to use for context menu actions */
+	TSharedPtr<FUICommandList> CommandList;
 	/** Event called when something is dropped on this group. */
 	FOnFieldDropEvent OnFieldDropEvent;
 	/** Getter for this group's name. */

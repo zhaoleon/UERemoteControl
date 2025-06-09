@@ -137,9 +137,10 @@ void URCPropertyIdAction::UpdatePropertyId()
 							continue;
 						}
 
-						FString PrefixPropertyClassName = TargetRCProperty->PropertyId.ToString() + TEXT(".");
-						FName PropertyClassName = FName(PrefixPropertyClassName + PropertyIdHandler->GetPropertySubTypeName(Property).ToString());
-						const FName& NewPropertyIdName = *(TargetRCProperty->PropertyId.ToString() + TEXT(".") + PropertyClassName.ToString());
+						const FName PropertyClassName = *(TargetRCProperty->PropertyId.ToString() + TEXT(".") + PropertyIdHandler->GetPropertySubTypeName(Property).ToString());
+
+						// Set the property name while sanitizing it with valid object characters
+						const FName NewPropertyIdName = *SlugStringForValidName(TargetRCProperty->PropertyId.ToString() + TEXT("_") + PropertyClassName.ToString(), TEXT("_"));
 
 						FPropertyIdContainerKey CurrentKey = FPropertyIdContainerKey(TargetRCProperty->PropertyId, PropertyClassName);
 
@@ -228,6 +229,13 @@ void URCPropertyIdAction::UpdatePropertyId()
 							if (!bIsSpecialCase)
 							{
 								CachedPropertySelfContainer[CurrentKey]->DuplicateProperty(NewPropertyIdName, PropToDuplicate);
+#if WITH_EDITORONLY_DATA
+								// In case the property is a Vector/Rotator we don't want the Lock widget
+								if (FProperty* CachedProperty = CachedPropertySelfContainer[CurrentKey]->GetProperty())
+								{
+									CachedProperty->RemoveMetaData(TEXT("AllowPreserveRatio"));
+								}
+#endif
 							}
 
 							// Do this the first time it is created so that it will have a better default value except for Object

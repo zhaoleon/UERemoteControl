@@ -8,7 +8,7 @@
 #include "Behaviour/RCBehaviourNode.h"
 #include "Controller/RCController.h"
 #include "Engine/Blueprint.h"
-#include "PropertyBag.h"
+#include "StructUtils/PropertyBag.h"
 #include "RemoteControlField.h"
 #include "RemoteControlPreset.h"
 
@@ -136,12 +136,10 @@ URCBehaviourNode* URCBehaviour::GetBehaviourNode()
 	UClass* OverrideBehaviourBlueprintClass = GetOverrideBehaviourBlueprintClass();
 	UClass* FinalBehaviourNodeClass = OverrideBehaviourBlueprintClass ? OverrideBehaviourBlueprintClass : BehaviourNodeClass.Get();
 
-	if (!CachedBehaviourNode || CachedBehaviourNodeClass != FinalBehaviourNodeClass)
+	if (!CachedBehaviourNode || CachedBehaviourNode->GetClass() != FinalBehaviourNodeClass)
 	{
 		CachedBehaviourNode = NewObject<URCBehaviourNode>(this, FinalBehaviourNodeClass);
 	}
-
-	CachedBehaviourNodeClass = FinalBehaviourNodeClass;
 
 	return CachedBehaviourNode;
 }

@@ -17,7 +17,9 @@
 
 TSharedPtr<SRCPanelTreeNode> SRCPanelExposedActor::MakeInstance(const FGenerateWidgetArgs& Args)
 {
-	return SNew(SRCPanelExposedActor, StaticCastSharedPtr<FRemoteControlActor>(Args.Entity), Args.Preset, Args.ColumnSizeData).LiveMode(Args.bIsInLiveMode);
+	return SNew(SRCPanelExposedActor, StaticCastSharedPtr<FRemoteControlActor>(Args.Entity), Args.Preset, Args.ColumnSizeData)
+		.LiveMode(Args.bIsInLiveMode)
+		.CommandList(Args.CommandList);
 }
 
 void SRCPanelExposedActor::Construct(const FArguments& InArgs, TWeakPtr<FRemoteControlActor> InWeakActor, URemoteControlPreset* InPreset, FRCColumnSizeData InColumnSizeData)
@@ -27,8 +29,13 @@ void SRCPanelExposedActor::Construct(const FArguments& InArgs, TWeakPtr<FRemoteC
 	const TSharedPtr<FRemoteControlActor> Actor = InWeakActor.Pin();
 	if (ensure(Actor))
 	{
-		Initialize(Actor->GetId(), InPreset, InArgs._LiveMode);
-		
+		FInitParams InitParams;
+		InitParams.Preset = InPreset;
+		InitParams.EntityId = Actor->GetId();
+		InitParams.bLiveMode = InArgs._LiveMode;
+		InitParams.CommandList = InArgs._CommandList;
+		Initialize(InitParams);
+
 		ColumnSizeData = MoveTemp(InColumnSizeData);
 		WeakPreset = InPreset;
 		bLiveMode = InArgs._LiveMode;

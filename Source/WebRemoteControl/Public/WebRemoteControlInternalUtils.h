@@ -21,28 +21,28 @@ namespace RemotePayloadSerializer
 	/**
 	 * Replaces the first occurrence of a string in a TCHAR binary payload.
 	 */
-	void ReplaceFirstOccurence(TConstArrayView<uint8> InPayload, const FString& From, const FString& To, TArray<uint8>& OutModifiedPayload);
+	WEBREMOTECONTROL_API void ReplaceFirstOccurence(TConstArrayView<uint8> InPayload, const FString& From, const FString& To, TArray<uint8>& OutModifiedPayload);
 
 	/**
 	 * Converts a string verb to the enum representation.
 	 */
-	EHttpServerRequestVerbs ParseHttpVerb(FName InVerb);
+	WEBREMOTECONTROL_API EHttpServerRequestVerbs ParseHttpVerb(FName InVerb);
 
 	/**
 	 * Unwrap a request wrapper, while copying headers and http version from a template request if available.
 	 */
-	TSharedRef<FHttpServerRequest> UnwrapHttpRequest(const FRCRequestWrapper& Wrapper, const FHttpServerRequest* TemplateRequest = nullptr);
+	WEBREMOTECONTROL_API TSharedRef<FHttpServerRequest> UnwrapHttpRequest(const FRCRequestWrapper& Wrapper, const FHttpServerRequest* TemplateRequest = nullptr);
 
 	/**
 	 * @note This will serialize in ANSI directly.
 	 */
-	void SerializeWrappedCallResponse(int32 RequestId, TUniquePtr<FHttpServerResponse> Response, FMemoryWriter& Writer);
+	WEBREMOTECONTROL_API void SerializeWrappedCallResponse(int32 RequestId, TUniquePtr<FHttpServerResponse> Response, FMemoryWriter& Writer);
 
-	bool DeserializeCall(const FHttpServerRequest& InRequest, FRCCall& OutCall, const FHttpResultCallback& InCompleteCallback);
+	WEBREMOTECONTROL_API bool DeserializeCall(const FHttpServerRequest& InRequest, FRCCall& OutCall, const FHttpResultCallback& InCompleteCallback);
 
-	bool SerializeCall(const FRCCall& InCall, TArray<uint8>& OutPayload, bool bOnlyReturn = false);
+	WEBREMOTECONTROL_API bool SerializeCall(const FRCCall& InCall, TArray<uint8>& OutPayload, bool bOnlyReturn = false);
 
-	bool DeserializeObjectRef(const FHttpServerRequest& InRequest, FRCObjectReference& OutObjectRef, FRCObjectRequest& OutDeserializedRequest, const FHttpResultCallback& InCompleteCallback);
+	WEBREMOTECONTROL_API bool DeserializeObjectRef(const FHttpServerRequest& InRequest, FRCObjectReference& OutObjectRef, FRCObjectRequest& OutDeserializedRequest, const FHttpResultCallback& InCompleteCallback);
 }
 
 
@@ -59,12 +59,12 @@ namespace WebRemoteControlInternalUtils
 	 * @param InResponseCode The response's code. (Defaults to a bad request)
 	 * @return The constructed server response.
 	 */
-	TUniquePtr<FHttpServerResponse> CreateHttpResponse(EHttpServerResponseCodes InResponseCode = EHttpServerResponseCodes::BadRequest);
+	WEBREMOTECONTROL_API TUniquePtr<FHttpServerResponse> CreateHttpResponse(EHttpServerResponseCodes InResponseCode = EHttpServerResponseCodes::BadRequest);
 
 	/**
 	 * Create a http response for a request denied because of an invalid passphrase.
 	 */
-	TUniquePtr<FHttpServerResponse> CreatedInvalidPassphraseResponse();
+	WEBREMOTECONTROL_API TUniquePtr<FHttpServerResponse> CreatedInvalidPassphraseResponse();
 
 	/**
 	 * Create a json structure containing an error message.
@@ -75,7 +75,7 @@ namespace WebRemoteControlInternalUtils
 	 *	  errorMessage: "Request content type must be application/json" 
 	 *	}
 	 */
-	void CreateUTF8ErrorMessage(const FString& InMessage, TArray<uint8>& OutUTF8Message);
+	WEBREMOTECONTROL_API void CreateUTF8ErrorMessage(const FString& InMessage, TArray<uint8>& OutUTF8Message);
 
 	/**
 	 * Deserialize a json structure to find the start and end of every struct parameter in the request.
@@ -84,7 +84,7 @@ namespace WebRemoteControlInternalUtils
 	 * @param OutErrorText If set, the string pointer will be populated with an error message on error.
 	 * @return Whether the deserialization was successful.
 	 */
-	bool GetStructParametersDelimiters(TConstArrayView<uint8> InTCHARPayload, TMap<FString, FBlockDelimiters>& InOutStructParameters, FString* OutErrorText = nullptr);
+	WEBREMOTECONTROL_API bool GetStructParametersDelimiters(TConstArrayView<uint8> InTCHARPayload, TMap<FString, FBlockDelimiters>& InOutStructParameters, FString* OutErrorText = nullptr);
 
 	/**
 	 * Deserialize a request into a UStruct.
@@ -155,7 +155,7 @@ namespace WebRemoteControlInternalUtils
 	 * @param OutErrorText If set, the string pointer will be populated with an error message on error.
 	 * @return Whether the delimiters were able to be found.
 	 */
-	[[nodiscard]] bool GetBatchRequestStructDelimiters(TConstArrayView<uint8> InTCHARPayload, TMap<int32, FBlockDelimiters>& OutStructParameters, FString* OutErrorText = nullptr);
+	[[nodiscard]]WEBREMOTECONTROL_API  bool GetBatchRequestStructDelimiters(TConstArrayView<uint8> InTCHARPayload, TMap<int32, FBlockDelimiters>& OutStructParameters, FString* OutErrorText = nullptr);
 
 	/**
 	 * Get the struct delimiters for all the batched WebSocket requests.
@@ -164,7 +164,7 @@ namespace WebRemoteControlInternalUtils
 	 * @param OutErrorText If set, the string pointer will be populated with an error message on error.
 	 * @return Whether the delimiters were able to be found.
 	 */
-	[[nodiscard]] bool GetBatchWebSocketRequestStructDelimiters(TConstArrayView<uint8> InTCHARPayload, TArray<FBlockDelimiters>& OutStructParameters, FString* OutErrorText = nullptr);
+	[[nodiscard]]WEBREMOTECONTROL_API  bool GetBatchWebSocketRequestStructDelimiters(TConstArrayView<uint8> InTCHARPayload, TArray<FBlockDelimiters>& OutStructParameters, FString* OutErrorText = nullptr);
 	
 	/**
 	 * Specialization of DeserializeRequestPayload that handles Batch requests.
@@ -281,12 +281,12 @@ namespace WebRemoteControlInternalUtils
 	/**
 	 * Adds a header indicating that the request is a wrapped request that originated from the engine itself.
 	 */
-	void AddWrappedRequestHeader(FHttpServerRequest& Request);
+	WEBREMOTECONTROL_API void AddWrappedRequestHeader(FHttpServerRequest& Request);
 
 	/**
 	 * Get whether the request is a wrapped request.
 	 */
-	bool IsWrappedRequest(const FHttpServerRequest& Request);
+	WEBREMOTECONTROL_API bool IsWrappedRequest(const FHttpServerRequest& Request);
 
 	/**
 	 * Deserialize a request into a UStruct.
@@ -325,27 +325,27 @@ namespace WebRemoteControlInternalUtils
 	 * 
 	 * @note InCompleteCallback will be called with an appropriate http response if the content type is not valid.
 	 */
-	[[nodiscard]] bool ValidateContentType(const FHttpServerRequest& InRequest, FString InContentType, const FHttpResultCallback& InCompleteCallback);
+	[[nodiscard]]WEBREMOTECONTROL_API  bool ValidateContentType(const FHttpServerRequest& InRequest, FString InContentType, const FHttpResultCallback& InCompleteCallback);
 
 	/**
 	 * Check if a function call is valid since some objects//functions are disabled remotely for security reasons.
 	 * @param InRCCall The RC call to validate.
 	 * @param OutErrorText Optional error text.
 	 **/
-	[[nodiscard]] bool ValidateFunctionCall(const FRCCall& InRCCall, FString* OutErrorText);
+	[[nodiscard]]WEBREMOTECONTROL_API  bool ValidateFunctionCall(const FRCCall& InRCCall, FString* OutErrorText);
 
 	/**
 	 * Add the desired content type to the http response headers.
 	 * @param InResponse The response to add the content type to.
 	 * @param InContentType The content type header to add.
 	 */
-	void AddContentTypeHeaders(FHttpServerResponse* InOutResponse, FString InContentType);
+	WEBREMOTECONTROL_API void AddContentTypeHeaders(FHttpServerResponse* InOutResponse, FString InContentType);
 	
 	/**
 	* Add CORS headers to a http response.
 	* @param InOutResponse The http response to add the CORS headers to.
 	*/
-	void AddCORSHeaders(FHttpServerResponse* InOutResponse);
+	WEBREMOTECONTROL_API void AddCORSHeaders(FHttpServerResponse* InOutResponse);
 
 	/**
 	 * Validate a request's content type.
@@ -354,7 +354,7 @@ namespace WebRemoteControlInternalUtils
 	 * @param OutErrorText If set, the string pointer will be populated with an error message on error.
 	 * @return Whether or not the content type matches the target content type.
 	 */
-	bool IsRequestContentType(const FHttpServerRequest& InRequest, const FString& InContentType, FString* OutErrorText);
+	WEBREMOTECONTROL_API bool IsRequestContentType(const FHttpServerRequest& InRequest, const FString& InContentType, FString* OutErrorText);
 
 	/**
 	 * Serialize a struct on scope.
@@ -463,5 +463,5 @@ namespace WebRemoteControlInternalUtils
 	}
 
 	/** Checking ApiKey using Md5. */
-	bool CheckPassphrase(const FString& HashedPassphrase);
+	WEBREMOTECONTROL_API bool CheckPassphrase(const FString& HashedPassphrase);
 }

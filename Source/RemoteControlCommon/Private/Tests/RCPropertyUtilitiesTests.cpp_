@@ -15,7 +15,7 @@
 
 BEGIN_DEFINE_SPEC(FRCPropertyUtilitiesSpec,
 	"Plugin.RemoteControl.RCPropertyUtilities",
-	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter | EAutomationTestFlags::ApplicationContextMask)
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter | EAutomationTestFlags_ApplicationContextMask)
 END_DEFINE_SPEC(FRCPropertyUtilitiesSpec)
 
 void FRCPropertyUtilitiesSpec::Define()

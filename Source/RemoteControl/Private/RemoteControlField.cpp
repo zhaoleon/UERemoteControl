@@ -150,17 +150,30 @@ bool FRemoteControlField::CanBindObject(const UObject* InObjectToBind) const
 
 void FRemoteControlField::ClearMask(ERCMask InMaskBit)
 {
-	ActiveMasks &= ~(uint8)InMaskBit;
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+	ActiveMasks_DEPRECATED &= ~(uint8)InMaskBit;
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
 void FRemoteControlField::EnableMask(ERCMask InMaskBit)
 {
-	ActiveMasks |= (uint8)InMaskBit;
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+	ActiveMasks_DEPRECATED |= (uint8)InMaskBit;
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
 bool FRemoteControlField::HasMask(ERCMask InMaskBit) const
 {
-	return (ActiveMasks & (uint8)InMaskBit) != (uint8)ERCMask::NoMask;
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+	return (ActiveMasks_DEPRECATED & (uint8)InMaskBit) != (uint8)ERCMask::NoMask;
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
+}
+
+ERCMask FRemoteControlField::GetActiveMasks() const
+{
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+	return (ERCMask)ActiveMasks_DEPRECATED;
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
 void FRemoteControlField::PostSerialize(const FArchive& Ar)
@@ -328,7 +341,8 @@ void FRemoteControlProperty::EnableEditCondition()
 
 bool FRemoteControlProperty::IsEditableInPackaged(FString* OutError) const
 {
-	return bIsEditableInPackaged || IRemoteControlModule::Get().PropertySupportsRawModification(GetProperty(), GetBoundObject(), false, OutError);
+	// Inaccurate: bIsEditableInPackaged = !Property->HasAnyPropertyFlags(CPF_BlueprintReadOnly) -> leads to false positives
+	return IRemoteControlModule::Get().PropertySupportsRawModification(GetProperty(), GetBoundObject(), false, OutError);
 }
 
 bool FRemoteControlProperty::IsEditableInEditor(FString* OutError) const
@@ -729,16 +743,14 @@ FArchive& operator<<(FArchive& Ar, FRemoteControlFunction& RCFunction)
 		else
 		{
 			UE_LOG(LogRemoteControl, Warning, TEXT("%s could not be loaded while deserialzing a Remote Control Function."), *RCFunction.FunctionPath.ToString());
-			Ar.SetError();
 			if (NumSerializedBytesFromArchive > 0)
 			{
 				// Skip over chunk of data if we were unable to resolve the class.
 				Ar.Seek(Ar.Tell() + NumSerializedBytesFromArchive);
 			}
 		}
-		
 	}
-	else if (RCFunction.CachedFunction.IsValid())
+	else
 	{
 		// The following code serializes the size of the arguments to serialize so that when loading,
 		// we can skip over it if the function could not be loaded.
@@ -750,7 +762,10 @@ FArchive& operator<<(FArchive& Ar, FRemoteControlFunction& RCFunction)
 
 		// Then serialize the arguments in order to get its size.
 		const int64 ArgsBegin = Ar.Tell();
-		RCFunction.CachedFunction->SerializeTaggedProperties(Ar, RCFunction.FunctionArguments->GetStructMemory(), RCFunction.CachedFunction.Get(), nullptr);
+		if (UFunction* Function = RCFunction.CachedFunction.Get())
+		{
+			Function->SerializeTaggedProperties(Ar, RCFunction.FunctionArguments->GetStructMemory(), Function, nullptr);
+		}
 
 		// Only go back and serialize the number of argument bytes if there is actually an underlying buffer to seek to.
 		if (ArgumentsSizePos != INDEX_NONE)

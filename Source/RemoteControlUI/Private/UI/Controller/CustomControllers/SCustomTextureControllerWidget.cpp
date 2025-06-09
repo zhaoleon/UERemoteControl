@@ -1,4 +1,4 @@
-﻿// Copyright Epic Games, Inc. All Rights Reserved.
+// Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "SCustomTextureControllerWidget.h"
 #include "Action/Bind/RCCustomBindActionUtilities.h"
@@ -161,53 +161,41 @@ void SCustomTextureControllerWidget::UpdateControllerValue()
 
 void SCustomTextureControllerWidget::HandleFilePathPickerPathPicked(const FString& InPickedPath)
 {
-	// The following code is adapted from FFilePath customization
+	// The following code is adapted from FFilePathStructCustomization::HandleFilePathPickerPathPicked.
 	FString FinalPath = InPickedPath;
 
-	// Keeping these here in case need additional customization
-	bool bLongPackageName = false;
-	bool bRelativeToGameDir = false;
+	// Important: The result of this path conversion must be so that
+	// FPackageName::IsValidTextForLongPackageName returns false.
+	// For instance, it will be so if it doesn't start with a leading slash.
 	
-	if (bLongPackageName)
+	auto ConvertPath = [](const FString& InAbsolutePath)
 	{
-		FString LongPackageName;
-		FString StringFailureReason;
-		if (FPackageName::TryConvertFilenameToLongPackageName(InPickedPath, LongPackageName, &StringFailureReason) == false)
+		// "Content" doesn't have a token since it is the default base path.
+		const FString ContentPath = FPaths::ConvertRelativePathToFull(FPaths::ProjectContentDir());
+		if (FPaths::IsUnderDirectory(InAbsolutePath, ContentPath))
 		{
-			FMessageDialog::Open(EAppMsgType::Ok, FText::FromString(StringFailureReason));
-		}
-		FinalPath = LongPackageName;
-	}
-	else if (bRelativeToGameDir && !InPickedPath.IsEmpty())
-	{
-		// A filepath under the project directory will be made relative to the project directory
-		// Otherwise, the absolute path will be returned unless it doesn't exist, the current path will
-		// be kept. This can happen if it's already relative to project dir (tabbing when selected)
-
-		const FString ProjectDir = FPaths::ProjectDir();
-		const FString AbsoluteProjectDir = FPaths::ConvertRelativePathToFull(ProjectDir);
-		const FString AbsolutePickedPath = FPaths::ConvertRelativePathToFull(InPickedPath);
-
-		// Verify if absolute path to file exists. If it was already relative to content directory
-		// the absolute will be to binaries and will possibly be garbage
-		if (FPaths::FileExists(AbsolutePickedPath))
-		{
-			// If file is part of the project dir, chop the project dir part
-			// Otherwise, use the absolute path
-			if (AbsolutePickedPath.StartsWith(AbsoluteProjectDir))
+			FString FinalPath = InAbsolutePath;
+			if (FPaths::MakePathRelativeTo(FinalPath, *ContentPath))
 			{
-				FinalPath = AbsolutePickedPath.RightChop(AbsoluteProjectDir.Len());
-			}
-			else
-			{
-				FinalPath = AbsolutePickedPath;
+				return FinalPath;
 			}
 		}
-		else
+
+		// Attempt to replace some other known paths with tokens.
+		return InAbsolutePath.Replace(*FPaths::ConvertRelativePathToFull(FPaths::ProjectDir()), TEXT("{project_dir}"));
+	};
+	
+	if (!InPickedPath.IsEmpty())
+	{
+		// if received path is relative, it is likely relative to the editor's exe.
+		// We want to replace that path with tokens for known directories so that it can be replaced properly when cooked.
+		if (FPaths::IsRelative(InPickedPath))
 		{
-			// If absolute file doesn't exist, it might already be relative to project dir
-			// If not, then it might be a manual entry, so keep it untouched either way
-			FinalPath = InPickedPath;
+			const FString AbsolutePickedPath = FPaths::ConvertRelativePathToFull(InPickedPath);
+			if (FPaths::FileExists(AbsolutePickedPath))
+			{
+				FinalPath = ConvertPath(AbsolutePickedPath);
+			}
 		}
 	}
 
@@ -231,7 +219,7 @@ TSharedRef<SWidget> SCustomTextureControllerWidget::GetAssetThumbnailWidget()
 
 TSharedRef<SWidget> SCustomTextureControllerWidget::GetExternalTextureValueWidget()
 {
-	static const FString FileTypeFilter = TEXT("Image files (*.jpg; *.png; *.bmp; *.ico; *.exr; *.icns; *.jpeg; *.tga; *.hdr)|*.jpg; *.png; *.bmp; *.ico; *.exr; *.icns; *.jpeg; *.tga; *.hdr");
+	static const FString FileTypeFilter = TEXT("Image files (*.jpg; *.png; *.bmp; *.ico; *.exr; *.icns; *.jpeg; *.tga; *.hdr; *.dds)|*.jpg; *.png; *.bmp; *.ico; *.exr; *.icns; *.jpeg; *.tga; *.hdr; *.dds");
 	
 	return SNew(SFilePathPicker)
 			.BrowseButtonImage(FAppStyle::GetBrush("PropertyWindow.Button_Ellipsis"))

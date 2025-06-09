@@ -20,10 +20,6 @@ FWebRemoteControlExternalLogger::FWebRemoteControlExternalLogger(TSharedPtr<INet
 	WebSocketConnection->SetSocketClosedCallBack(ClosedCallback);
 }
 
-FWebRemoteControlExternalLogger::FWebRemoteControlExternalLogger(FVTableHelper& Helper)
-{
-}
-
 FWebRemoteControlExternalLogger::~FWebRemoteControlExternalLogger()
 {
 	FTSTicker::RemoveTicker(TickerHandle);

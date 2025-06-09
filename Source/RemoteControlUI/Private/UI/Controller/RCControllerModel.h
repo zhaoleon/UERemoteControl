@@ -31,10 +31,13 @@ class FRCControllerModel : public FRCLogicModeBase, public FSelfRegisteringEdito
 {
 public:
 	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnValueTypeChanged, URCVirtualPropertyBase* /* InController */, EPropertyBagPropertyType /* InValueType */);
-	DECLARE_MULTICAST_DELEGATE_OneParam(FOnValueChanged, URCVirtualPropertyBase* /* InController */);
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnValueChanged, TSharedPtr<FRCControllerModel> /* InControllerModel */);
 	
 	FRCControllerModel(URCVirtualPropertyBase* InVirtualProperty, const TSharedRef<IDetailTreeNode>& InTreeNode, const TSharedPtr<SRemoteControlPanel> InRemoteControlPanel);
-	
+
+	/** Called right after object construction to initialize the model (and allow using SharedThis, etc) */
+	void Initialize();
+
 	/**
 	 * The widget to be rendered for this Controller
 	 * Used to represent a single row when added to the Controllers Panel List
@@ -78,10 +81,10 @@ public:
 	void EnterDescriptionEditingMode();
 
 	/** User-friendly Name of the underlying Controller */
-	FName GetControllerDisplayName();
+	FText GetControllerDisplayName() const;
 
 	/** Description of the underlying Controller */
-	FText GetControllerDescription();
+	FText GetControllerDescription() const;
 
 	/**Fetches the unique Id for this UI item */
 	FGuid GetId() const { return Id; }
@@ -112,6 +115,9 @@ private:
 
 	/** Value change event */
 	void OnPropertyValueChanged(const FPropertyChangedEvent& InPropertyChangedEvent);
+
+	/** Get the current visibility of the placeholder TextBlock widget */
+	EVisibility GetPlaceholderVisibility() const;
 
 	/** Initializes the list of controlled types. Used by MultiControllers */
 	void InitControlledTypes();

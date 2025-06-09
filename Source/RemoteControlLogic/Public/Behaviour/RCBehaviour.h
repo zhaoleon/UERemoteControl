@@ -60,6 +60,9 @@ public:
 	/** Whether we can create an action pertaining to a given remote control field for the current behaviour */
 	virtual bool CanHaveActionForField(const TSharedPtr<FRemoteControlField> InRemoteControlField) const;
 
+	/** Whether the behaviour support property id, by default true because of the OnModify Behaviour */
+	virtual bool SupportPropertyId() const { return true; }
+
 	/**
 	 * Return blueprint class associated with behaviour if exists
 	 */
@@ -94,7 +97,6 @@ public:
 	/** Called when an action value changed */
 	virtual void NotifyActionValueChanged(URCAction* InChangedAction) {}
 
-protected:
 	/**
 	 * It created the node if it called first time
 	 * If BehaviourNodeClass changes it creates new instance
@@ -102,6 +104,7 @@ protected:
 	 */
 	URCBehaviourNode* GetBehaviourNode();
 
+protected:
 	/** Execute all the action if not provided a valid Action otherwise will only execute the given action */
 	virtual void ExecuteInternal(const TSet<TObjectPtr<URCAction>>& InActionsToExecute);
 
@@ -130,9 +133,6 @@ public:
 	TWeakObjectPtr<URCController> ControllerWeakPtr;
 
 private:
-	/** Cached behaviour node class */
-	TSubclassOf<UObject> CachedBehaviourNodeClass;
-
 	/** Cached behaviour node */
 	UPROPERTY(Instanced)
 	TObjectPtr<URCBehaviourNode> CachedBehaviourNode;

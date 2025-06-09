@@ -19,54 +19,49 @@ FRCControllerModel::FRCControllerModel(URCVirtualPropertyBase* InVirtualProperty
 	: FRCLogicModeBase(InRemoteControlPanel)
 	, VirtualPropertyWeakPtr(InVirtualProperty)
 	, DetailTreeNodeWeakPtr(InTreeNode)
+	, CurrentControlValueType(EPropertyBagPropertyType::None)
 {
-	if (ensure(InVirtualProperty))
+	Id = FGuid::NewGuid();
+}
+
+void FRCControllerModel::Initialize()
+{
+	URCVirtualPropertyBase* const VirtualProperty = VirtualPropertyWeakPtr.Get();
+	const TSharedPtr<IDetailTreeNode> TreeNode = DetailTreeNodeWeakPtr.Pin();
+
+	if (ensure(VirtualProperty && TreeNode.IsValid()))
 	{
-		if (InVirtualProperty->DisplayName.IsNone())
+		if (VirtualProperty->DisplayName.IsNone())
 		{
-			InVirtualProperty->DisplayName = InVirtualProperty->PropertyName;
+			VirtualProperty->DisplayName = VirtualProperty->PropertyName;
 		}
 
 		SAssignNew(ControllerNameTextBox, SEditableTextBox)
+			.Text(this, &FRCControllerModel::GetControllerDisplayName)
 			.RevertTextOnEscape(true)
 			.SelectAllTextWhenFocused(true)
-			.Text(FText::FromName(InVirtualProperty->DisplayName))
-			.OnTextCommitted_Raw(this, &FRCControllerModel::OnControllerNameCommitted);
+			.OnTextCommitted(this, &FRCControllerModel::OnControllerNameCommitted);
 
 		SAssignNew(ControllerDescriptionTextBox, SInlineEditableTextBlock)
-			.Text(InVirtualProperty->Description)
+			.Text(this, &FRCControllerModel::GetControllerDescription)
 			.MultiLine(true)
-			.OnTextCommitted_Raw(this, &FRCControllerModel::OnControllerDescriptionCommitted);
+			.OnTextCommitted(this, &FRCControllerModel::OnControllerDescriptionCommitted);
 
 		SAssignNew(ControllerFieldIdTextBox, SInlineEditableTextBlock)
-			.Text(FText::FromName(InVirtualProperty->FieldId))
-			.OnTextCommitted_Raw(this, &FRCControllerModel::OnControllerFieldIdCommitted);
+			.Text(FText::FromName(VirtualProperty->FieldId))
+			.OnTextCommitted(this, &FRCControllerModel::OnControllerFieldIdCommitted);
 
-		if (const TSharedPtr<IPropertyHandle>& PropertyHandle = InTreeNode->CreatePropertyHandle())
+		if (const TSharedPtr<IPropertyHandle>& PropertyHandle = TreeNode->CreatePropertyHandle())
 		{
-			PropertyHandle->SetOnPropertyValueChangedWithData(TDelegate<void(const FPropertyChangedEvent&)>::CreateRaw(this, &FRCControllerModel::OnPropertyValueChanged));
+			PropertyHandle->SetOnPropertyValueChangedWithData(TDelegate<void(const FPropertyChangedEvent&)>::CreateSP(this, &FRCControllerModel::OnPropertyValueChanged));
 		}
 	}
-
-	Id = FGuid::NewGuid();
 }
 
 TSharedRef<SWidget> FRCControllerModel::GetWidget() const
 {
 	const FNodeWidgets NodeWidgets = DetailTreeNodeWeakPtr.Pin()->CreateNodeWidgets();
 
-	// We need to add this metadata to the ColorController to avoid the update when dragging causing a lot of lag
-	const TSharedPtr<IPropertyHandle> PropertyHandle = DetailTreeNodeWeakPtr.Pin()->CreatePropertyHandle();
-	if (PropertyHandle.IsValid())
-	{
-		FStructProperty* StructProperty = CastField<FStructProperty>(PropertyHandle->GetProperty());
-		if (StructProperty && StructProperty->Struct &&
-			StructProperty->Struct.GetFName() == FName("Color") &&
-			!StructProperty->HasMetaData("OnlyUpdateOnInteractionEnd"))
-		{
-			StructProperty->AppendMetaData({{FName("OnlyUpdateOnInteractionEnd"), TEXT("true")}});
-		}
-	}
 	const TSharedRef<SHorizontalBox> FieldWidget = SNew(SHorizontalBox);
 	if (VirtualPropertyWeakPtr.IsValid())
 	{
@@ -85,7 +80,6 @@ TSharedRef<SWidget> FRCControllerModel::GetWidget() const
 		{
 			FieldWidget->AddSlot()
 				.Padding(SlotMargin)
-				.HAlign(HAlign_Left)
 				[
 					NodeWidgets.ValueWidget.ToSharedRef()
 				];
@@ -117,7 +111,22 @@ TSharedRef<SWidget> FRCControllerModel::GetDescriptionWidget() const
 {
 	return SNew(SBox).Padding(10.f, 2.f)
 		[
-			ControllerDescriptionTextBox.ToSharedRef()
+			SNew(SOverlay)
+			+SOverlay::Slot()
+			.VAlign(VAlign_Center)
+			[
+				ControllerDescriptionTextBox.ToSharedRef()
+			]
+
+			+SOverlay::Slot()
+			.HAlign(HAlign_Left)
+			.VAlign(VAlign_Center)
+			[
+				SNew(STextBlock)
+				.Text(LOCTEXT("RemoteControlDescriptionPlaceholder", "Double click to change description"))
+				.IsEnabled(false)
+				.Visibility(this, &FRCControllerModel::GetPlaceholderVisibility)
+			]
 		];
 }
 
@@ -235,15 +244,12 @@ void FRCControllerModel::OnControllerNameCommitted(const FText& InNewControllerN
 
 void FRCControllerModel::OnControllerDescriptionCommitted(const FText& InNewControllerDescription, ETextCommit::Type InCommitInfo)
 {
-	if (URemoteControlPreset* Preset = GetPreset())
+	if (URCVirtualPropertyBase* Controller = GetVirtualProperty())
 	{
-		if (URCVirtualPropertyBase* Controller = GetVirtualProperty())
-		{
-			FScopedTransaction Transaction(LOCTEXT("ChangedControllerDescription", "Update controller description"));
-			Controller->Modify();
-			Controller->Description = InNewControllerDescription;
-			ControllerDescriptionTextBox->SetText(InNewControllerDescription);
-		}
+		FScopedTransaction Transaction(LOCTEXT("ChangedControllerDescription", "Update controller description"));
+		Controller->Modify();
+		Controller->Description = InNewControllerDescription;
+		ControllerDescriptionTextBox->SetText(InNewControllerDescription);
 	}
 }
 
@@ -288,13 +294,23 @@ void FRCControllerModel::OnTextControlValueTypeChanged(TSharedPtr<FString, ESPMo
 
 void FRCControllerModel::OnPropertyValueChanged(const FPropertyChangedEvent& InPropertyChangedEvent)
 {	
-	if (URCVirtualPropertyBase* ControllerProperty = GetVirtualProperty())
+	if (OnValueChanged.IsBound())
 	{
-		if (OnValueChanged.IsBound())
-		{
-			OnValueChanged.Broadcast(ControllerProperty);
-		}
+		OnValueChanged.Broadcast(StaticCastSharedRef<FRCControllerModel>(AsShared()));
 	}
+}
+
+EVisibility FRCControllerModel::GetPlaceholderVisibility() const
+{
+	if (ControllerDescriptionTextBox.IsValid())
+	{
+		if (ControllerDescriptionTextBox->IsInEditMode())
+		{
+			return EVisibility::Collapsed;
+		}
+		return ControllerDescriptionTextBox->GetText().IsEmpty() ? EVisibility::Visible : EVisibility:: Collapsed;
+	}
+	return EVisibility::Collapsed;
 }
 
 void FRCControllerModel::InitControlledTypes()
@@ -332,23 +348,21 @@ void FRCControllerModel::EnterDescriptionEditingMode()
 	ControllerDescriptionTextBox->EnterEditingMode();
 }
 
-FName FRCControllerModel::GetControllerDisplayName()
+FText FRCControllerModel::GetControllerDisplayName() const
 {
 	if (URCVirtualPropertyBase* Controller = GetVirtualProperty())
 	{
-		return Controller->DisplayName;
+		return FText::FromName(Controller->DisplayName);
 	}
-
-	return NAME_None;
+	return FText::GetEmpty();
 }
 
-FText FRCControllerModel::GetControllerDescription()
+FText FRCControllerModel::GetControllerDescription() const
 {
 	if (URCVirtualPropertyBase* Controller = GetVirtualProperty())
 	{
 		return Controller->Description;
 	}
-
 	return FText::GetEmpty();
 }
 

@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "PropertyBag.h"
+#include "StructUtils/PropertyBag.h"
 #include "UI/BaseLogicUI/SRCLogicPanelBase.h"
 
 class FRCControllerModel;
@@ -55,6 +55,9 @@ public:
 	/** Constructs this widget with InArgs */
 	void Construct(const FArguments& InArgs, const TSharedRef<SRemoteControlPanel>& InPanel);
 
+	/** Called to refresh the controller list */
+	void Refresh();
+
 	/** Whether the Controller list widget currently has focus. Used for Delete Item UI command */
 	bool IsListFocused() const;
 
@@ -75,6 +78,9 @@ public:
 
 	/** Returns the UI items currently selected by the user (if any). To be implemented per child panel*/
 	virtual TArray<TSharedPtr<FRCLogicModeBase>> GetSelectedLogicItems() const override;
+
+	/** Retrieve the current number of Controllers */
+	int32 NumControllerItems() const;
 
 	void EnterRenameMode();
 

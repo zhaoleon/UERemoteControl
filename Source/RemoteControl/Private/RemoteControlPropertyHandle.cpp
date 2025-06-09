@@ -157,6 +157,18 @@ namespace
 		return true;
 	}
 
+	template<typename InValueType>
+	void WritePropertyValue(FCborWriter& InCborWriter, const InValueType& InValue)
+	{
+		InCborWriter.WriteValue(InValue);
+	}
+
+	template<>
+	void WritePropertyValue<UObject*>(FCborWriter& InCborWriter, UObject* const& InValue)
+	{
+		InCborWriter.WriteValue(InValue ? InValue->GetPathName() : FString());
+	}
+
 	/**
 	 * Set property value for given property Handle
 	 * Setter following standard SetObjectProperties path from IRemoteControlModule
@@ -172,7 +184,7 @@ namespace
 			return false;
 		}
 
-		const FProperty* Property = PropertyHandle.GetProperty();
+		FProperty* Property = PropertyHandle.GetProperty();
 		const FProperty* ParentProperty = PropertyHandle.GetParentProperty();
 		if (!ensure(Property))
 		{
@@ -197,7 +209,7 @@ namespace
 			CborWriter.WriteValue(Property->GetName());
 		}
 
-		CborWriter.WriteValue(Value);
+		WritePropertyValue(CborWriter, Value);
 		CborWriter.WriteContainerEnd();
 
 		// Set a deserializer backend
@@ -235,7 +247,7 @@ namespace
 			return false;
 		}
 	
-		const FProperty* Property = InPropertyHandle.GetProperty();
+		FProperty* Property = InPropertyHandle.GetProperty();
 		if (!ensure(Property))
 		{
 			return false;
@@ -1871,10 +1883,7 @@ bool FRemoteControlPropertyHandleObject::SetValue(UObject* InValue)
 	{
 		return SetStaticMeshValue(InValue);
 	}
-	else
-	{
-		return SetObjectValue(InValue);
-	}
+	return SetPropertyValue(*this, InValue);
 }
 
 bool FRemoteControlPropertyHandleObject::GetValue(UObject* OutValue) const
@@ -1987,54 +1996,6 @@ bool FRemoteControlPropertyHandleObject::SetMaterialValue(UObject* InValue, int3
 	}
 
 	return bSuccess;
-}
-
-bool FRemoteControlPropertyHandleObject::SetObjectValue(UObject* InValue) const
-{
-	if (!InValue)
-	{
-		return false;
-	}
-
-	const TSharedPtr<FRemoteControlProperty>& RemoteControlPropertyPtr = GetRCProperty();
-	
-	FRCObjectReference ObjectRef;
-	ObjectRef.Property = RemoteControlPropertyPtr->GetProperty();
-	ObjectRef.Access = RemoteControlPropertyPtr->GetPropertyHandle()->ShouldGenerateTransaction() ? ERCAccess::WRITE_TRANSACTION_ACCESS : ERCAccess::WRITE_ACCESS;
-	ObjectRef.PropertyPathInfo = RemoteControlPropertyPtr->FieldPathInfo.ToString();
-
-#if WITH_EDITOR
-	FScopedTransaction Transaction(LOCTEXT("SetObjectValue", "Set Object Value"));
-#endif
-	
-	for (UObject* Object : RemoteControlPropertyPtr->GetBoundObjects())
-	{
-		if (IRemoteControlModule::Get().ResolveObjectProperty(ObjectRef.Access, Object, ObjectRef.PropertyPathInfo, ObjectRef))
-		{
-#if WITH_EDITOR
-			Object->Modify();
-#endif
-			/** Setting with Pointer and using Serialization of itself afterwards as a workaround with the Asset not updating in the world. */
-			FObjectPropertyBase* ObjectProperty = CastField<FObjectPropertyBase>(RemoteControlPropertyPtr->GetProperty());
-			if (!ObjectProperty)
-			{
-				return false;
-			}
-			
-			FProperty* Property = RemoteControlPropertyPtr->GetProperty();
-			uint8* ValueAddress = Property->ContainerPtrToValuePtr<uint8>(ObjectRef.ContainerAdress);
-			ObjectProperty->SetObjectPropertyValue(ValueAddress, InValue);
-
-			TArray<uint8> Buffer;
-			FMemoryReader Reader(Buffer);
-			FCborStructDeserializerBackend DeserializerBackend(Reader);
-
-			IRemoteControlModule::Get().SetObjectProperties(ObjectRef, DeserializerBackend, ERCPayloadType::Cbor, Buffer);
-			return true;
-		}
-	}
-	
-	return false;
 }
 
 bool FRemoteControlPropertyHandleObject::Supports(const FProperty* InProperty)

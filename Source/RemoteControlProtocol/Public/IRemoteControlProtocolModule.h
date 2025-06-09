@@ -7,6 +7,8 @@
 
 #include "IRemoteControlProtocol.h"
 
+class URemoteControlPreset;
+
 /**
  * A Remote Control Protocol module. That is base for all remote control protcols
  */
@@ -48,6 +50,12 @@ public:
 	 * @param InProtocol protocol instance pointer
 	 */
 	virtual void RemoveProtocol(FName InProtocolName, TSharedRef<IRemoteControlProtocol> InProtocol) = 0;
+
+	/** Applies all the protocol bindings found within the given preset */
+	virtual void ApplyProtocolBindings(URemoteControlPreset* InPreset) const = 0;
+
+	/** Unapplies all the protocol bindings found within the given preset */
+	virtual void UnapplyProtocolBindings(URemoteControlPreset* InPreset) const = 0;
 
 	/** Unregister all protocols */
 	virtual void EmptyProtocols() = 0;

@@ -39,8 +39,15 @@ struct SRCPanelExposedEntity : public SRCPanelTreeNode
 	virtual void Refresh() override;
 	
 protected:
-	void Initialize(const FGuid& InEntityId, URemoteControlPreset* InPreset, const TAttribute<bool>& InbLiveMode);
-	
+	struct FInitParams
+	{
+		FGuid EntityId;
+		URemoteControlPreset* Preset;
+		TAttribute<bool> bLiveMode;
+		TSharedPtr<FUICommandList> CommandList;
+	};
+	void Initialize(const FInitParams& InParams);
+
 	/** Create a widget that displays the rebind button. */
 	TSharedRef<SWidget> CreateInvalidWidget(const FText& InErrorText = FText::GetEmpty());
 
@@ -60,8 +67,12 @@ protected:
 	TWeakObjectPtr<URemoteControlPreset> Preset;
 	/** Whether the panel is in live mode or not. */
 	TAttribute<bool> bLiveMode;
+	/** Command list to use for the context menu */
+	TSharedPtr<FUICommandList> CommandList;
+	/** Display name of the entity's owner (What actor it's bound to). */
+	FText CachedOwnerDisplayName;
 	/** Name of the entity's owner (What actor it's bound to). */
-	FName CachedOwnerName;
+	FName CachedOwnerPathName;
 	/** Path from the entity owner to the object holding the exposed property. */
 	FName CachedSubobjectPath;
 	/** Path of the entity's binding. */
@@ -129,10 +140,20 @@ public:
 
 	using WidgetType = SWidget;
 
-	FExposedEntityDragDrop(const TSharedPtr<SWidget>& InWidget, const FGuid& InNodeId, const TArray<FGuid>& InSelectedIds)
+	FExposedEntityDragDrop(const TSharedPtr<SWidget>& InWidget, const FGuid& InNodeId, const TArray<TSharedPtr<SRCPanelTreeNode>>& InSelectedEntities)
 		: NodeId(InNodeId)
-		, SelectedIds(InSelectedIds)
+		, SelectedEntities(InSelectedEntities)
 	{
+		Algo::TransformIf(SelectedEntities, SelectedFieldsIds,
+			[] (const TSharedPtr<SRCPanelTreeNode>& InNode)
+			{
+				return InNode->GetRCType() == SRCPanelTreeNode::Field;
+			},
+			[] (const TSharedPtr<SRCPanelTreeNode>& InNode)
+			{
+				return InNode->GetRCId();
+			});
+		
 		DecoratorWidget = SNew(SBorder)
 			.Padding(1.0f)
 			.BorderImage(FRemoteControlPanelStyle::Get()->GetBrush("RemoteControlPanel.ExposedFieldBorder"))
@@ -149,9 +170,15 @@ public:
 	}
 
 	/** Get the IDs that were selected at the time the drag started. */
-	const TArray<FGuid>& GetSelectedIds() const
+	const TArray<TSharedPtr<SRCPanelTreeNode>>& GetSelectedEntities() const
 	{
-		return SelectedIds;
+		return SelectedEntities;
+	}
+
+	/** Get the IDs that were selected at the time the drag started. */
+	const TArray<FGuid>& GetSelectedFieldsId() const
+	{
+		return SelectedFieldsIds;
 	}
 
 	virtual void OnDrop(bool bDropWasHandled, const FPointerEvent& MouseEvent) override
@@ -167,8 +194,10 @@ public:
 private:
 	/** ID of the represented entity or group. */
 	FGuid NodeId;
-	/** IDs that were selected at the time the drag started. */
-	TArray<FGuid> SelectedIds;
+	/** Field IDs that were selected at the time the drag started. */
+    TArray<FGuid> SelectedFieldsIds;
+	/** Entities that were selected at the time the drag started. */
+	TArray<TSharedPtr<SRCPanelTreeNode>> SelectedEntities;
 	/** Decorator Drag and Drop widget. */
 	TSharedPtr<SWidget> DecoratorWidget;
 };

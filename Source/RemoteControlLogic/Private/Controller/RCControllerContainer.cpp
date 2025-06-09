@@ -26,18 +26,18 @@ void URCControllerContainer::UpdateEntityIds(const TMap<FGuid, FGuid>& InEntityI
 
 URCVirtualPropertyInContainer* URCControllerContainer::AddProperty(const FName& InPropertyName, TSubclassOf<URCVirtualPropertyInContainer> InPropertyClass, const EPropertyBagPropertyType InValueType, UObject* InValueTypeObject /*= nullptr*/, TArray<FPropertyBagPropertyDescMetaData> MetaData /*= TArray<FPropertyBagPropertyDescMetaData>()*/)
 {
-	// Vector Controllers
-	if (InValueType == EPropertyBagPropertyType::Struct)
+	if (InValueType == EPropertyBagPropertyType::String)
 	{
-		if (InValueTypeObject == TBaseStructure<FVector>::Get() || InValueTypeObject == TBaseStructure<FVector2D>::Get())
+		// Add multiline capabilities to string controllers.
+		// TODO: a meta-data editing interface to customize meta-data like this per-controller.
+		MetaData.Add(FPropertyBagPropertyDescMetaData(FName("MultiLine"), TEXT("true")));
+	}
+	else if (InValueType == EPropertyBagPropertyType::Struct)
+	{
+		// Color Controllers
+		if (InValueTypeObject == TBaseStructure<FColor>::Get())
 		{
-			MetaData.Add(FPropertyBagPropertyDescMetaData(FName("Delta"), FString::Printf(TEXT("%f"), VectorSliderDelta)));
-			MetaData.Add(FPropertyBagPropertyDescMetaData(FName("LinearDeltaSensitivity"), FString::Printf(TEXT("%f"), VectorLinearDeltaSensitivity)));
-		}
-		else if (InValueTypeObject == TBaseStructure<FRotator>::Get())
-		{
-			MetaData.Add(FPropertyBagPropertyDescMetaData(FName("Delta"), FString::Printf(TEXT("%f"), RotatorSliderDelta)));
-			MetaData.Add(FPropertyBagPropertyDescMetaData(FName("LinearDeltaSensitivity"), FString::Printf(TEXT("%f"), RotatorLinearDeltaSensitivity)));
+			MetaData.Add(FPropertyBagPropertyDescMetaData(FName("OnlyUpdateOnInteractionEnd"), TEXT("true")));
 		}
 	}
 

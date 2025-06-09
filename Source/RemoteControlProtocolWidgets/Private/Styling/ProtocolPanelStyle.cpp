@@ -8,15 +8,12 @@
 #include "Styling/SlateTypes.h"
 #include "Styling/StarshipCoreStyle.h"
 #include "Styling/StyleColors.h"
+#include "Styling/SlateStyleMacros.h"
 
 #include "Interfaces/IPluginManager.h"
 
-#define IMAGE_BRUSH(RelativePath, ...) FSlateImageBrush(StyleSet->RootToContentDir(RelativePath, TEXT(".png")), __VA_ARGS__)
-#define IMAGE_BRUSH_SVG( RelativePath, ... ) FSlateVectorImageBrush(StyleSet->RootToContentDir(RelativePath, TEXT(".svg")), __VA_ARGS__)
-#define BOX_BRUSH(RelativePath, ...) FSlateBoxBrush(StyleSet->RootToContentDir(RelativePath, TEXT(".png")), __VA_ARGS__)
-#define CORE_BOX_BRUSH( RelativePath, ... ) FSlateBoxBrush(StyleSet->RootToCoreContentDir(RelativePath, TEXT(".png") ), __VA_ARGS__)
 #define BOX_PLUGIN_BRUSH( RelativePath, ... ) FSlateBoxBrush(FProtocolPanelStyle::InContent( RelativePath, ".png" ), __VA_ARGS__)
-#define DEFAULT_FONT(...) FAppStyle::Get().GetDefaultFontStyle(__VA_ARGS__)
+#define RootToContentDir StyleSet->RootToContentDir
 
 TSharedPtr<FSlateStyleSet> FProtocolPanelStyle::StyleSet;
 
@@ -97,9 +94,5 @@ void FProtocolPanelStyle::SetupWidgetStyles(TSharedRef<FSlateStyleSet> InStyle)
 	StyleSet->Set("ProtocolsPanel.Widgets.Mask", ProtocolMaskWidgetStyle);
 }
 
-#undef IMAGE_BRUSH
-#undef IMAGE_BRUSH_SVG
-#undef BOX_BRUSH
-#undef CORE_BOX_BRUSH
 #undef BOX_PLUGIN_BRUSH
-#undef DEFAULT_FONT
+#undef RootToContentDir

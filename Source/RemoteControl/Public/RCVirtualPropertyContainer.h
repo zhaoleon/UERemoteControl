@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 
-#include "PropertyBag.h"
+#include "StructUtils/PropertyBag.h"
 
 #include "RCVirtualPropertyContainer.generated.h"
 
@@ -116,6 +116,16 @@ public:
 	 * Returns number of virtual properties.
 	 */ 
 	int32 GetNumVirtualProperties() const;
+
+	/**
+	 * Returns the Property Bag Struct of this Container
+	 */
+	const UPropertyBag* GetPropertyBagStruct() const;
+
+	/**
+	 * Creates new Struct View for this Property Bag UStruct and Memory
+	 */
+	FStructView GetPropertyBagMutableValue();
 
 	/**
 	 * Creates new Struct on Scope for this Property Bag UStruct and Memory

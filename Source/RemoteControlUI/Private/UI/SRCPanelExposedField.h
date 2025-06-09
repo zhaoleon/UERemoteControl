@@ -36,6 +36,7 @@ struct SRCPanelExposedField : public SRCPanelExposedEntity
 		SLATE_ATTRIBUTE(bool, LiveMode)
 		SLATE_ATTRIBUTE(FText, HighlightText)
 		SLATE_ATTRIBUTE(URemoteControlPreset*, Preset)
+		SLATE_ARGUMENT(TSharedPtr<FUICommandList>, CommandList)
 	SLATE_END_ARGS()
 
 	static TSharedPtr<SRCPanelTreeNode> MakeInstance(const FGenerateWidgetArgs& Args);
@@ -45,6 +46,7 @@ struct SRCPanelExposedField : public SRCPanelExposedEntity
 	//~ SRCPanelTreeNode Interface 
 	virtual void GetNodeChildren(TArray<TSharedPtr<SRCPanelTreeNode>>& OutChildren) const override;
 	virtual ENodeType GetRCType() const override;
+	virtual void FocusPropertyIdWidget() const override;
 	virtual bool HasChildren() const override;
 	virtual void Refresh() override;
 	virtual TSharedRef<SWidget> GetWidget(const FName ForColumnName, const FName InActiveProtocol) override;
@@ -73,8 +75,11 @@ struct SRCPanelExposedField : public SRCPanelExposedEntity
 	/** Returns this widget's underlying objects. */
 	void GetBoundObjects(TSet<UObject*>& OutBoundObjects) const;
 
-	/** Get the owner name of this field */
-	FName GetOwnerName() const;
+	/** Get the owner display name of this field */
+	FText GetOwnerDisplayName() const;
+
+	/** Get the owner path name of this field */
+	FName GetOwnerPathName() const;
 
 protected:
 	/** Returns populated args to display this widget. */
@@ -118,6 +123,8 @@ private:
 	TUniquePtr<uint8[]> DefaultValue;
 	/** Holds the shared reference of reset button for this field. */
 	TSharedPtr<SWidget> ResetButtonWidget;
+	/** Holds the SharedPtr of the PropertyId widget of this field. */
+	TSharedPtr<SWidget> PropertyIdWidget;
 };
 
 

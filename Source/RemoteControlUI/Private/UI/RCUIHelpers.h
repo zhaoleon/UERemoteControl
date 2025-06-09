@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Templates/SharedPointerFwd.h"
 #include "UObject/ObjectPtr.h"
 
 class IDetailTreeNode;
@@ -11,6 +12,9 @@ class IPropertyRowGenerator;
 class SWidget;
 class URCController;
 class URCVirtualPropertySelfContainer;
+class URemoteControlPreset;
+struct FRemoteControlEntity;
+struct FRemoteControlProperty;
 
 namespace UE::RCUIHelpers
 {
@@ -58,4 +62,13 @@ namespace UE::RCUIHelpers
 	* Used to provide a consistent look for the type color widget across various Remote Control Logic panels
 	*/
 	TSharedRef<SWidget> GetTypeColorWidget(const FProperty* InProperty);
+
+	/** Retrieves the entity owner for a given entity. If the entity is bound to an actor's subobject, the actor will be returned. */
+	UObject* GetEntityOwner(const TSharedPtr<const FRemoteControlEntity>& InEntity);
+
+	/** Generates the description to use for a new or existing controller, from the given property */
+	FText GenerateControllerDescriptionFromEntity(const TSharedPtr<const FRemoteControlEntity>& InEntity);
+
+	/** Automatically creates a controller for a given remote control property */
+	URCController* CreateControllerFromEntity(URemoteControlPreset* InPreset, const TSharedPtr<const FRemoteControlProperty>& InRemoteControlProperty);
 }

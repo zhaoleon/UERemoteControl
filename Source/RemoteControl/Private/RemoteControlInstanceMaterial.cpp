@@ -296,9 +296,9 @@ bool FRemoteControlInstanceMaterial::ContainsBoundObjects(TArray<UObject*> InObj
 	}
 
 	return FRemoteControlProperty::ContainsBoundObjects(ReplacesObjects);
-#endif
-
+#else
 	return false;
+#endif
 }
 
 void FRemoteControlInstanceMaterial::PostLoad()

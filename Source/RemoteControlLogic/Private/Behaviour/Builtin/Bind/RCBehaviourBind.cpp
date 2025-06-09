@@ -8,7 +8,7 @@
 #include "Controller/RCCustomControllerUtilities.h"
 #include "Engine/Texture2D.h"
 #include "IRemoteControlPropertyHandle.h"
-#include "PropertyBag.h"
+#include "StructUtils/PropertyBag.h"
 #include "RCVirtualProperty.h"
 #include "RemoteControlField.h"
 
@@ -246,6 +246,7 @@ bool URCBehaviourBind::CanHaveActionForField(URCController* Controller, TSharedR
 
 	// Indirect Binding (for Structs)
 	//
+	// todo: unify with supported controller structs in RC Config
 	const static TMap<UScriptStruct*, TArray<UScriptStruct*>> SupportedStructConversions =
 	{
 		/* Struct Type */                                 /* Supported Struct Types */
@@ -399,6 +400,12 @@ bool URCBehaviourBind::GetPropertyBagTypeFromFieldProperty(const FProperty* InPr
 	{
 		OutPropertyBagType = EPropertyBagPropertyType::String;
 	}
+	// When creating from linear color properties, create FColor controller instead
+	// todo: unify with supported controller structs in RC Config
+	else if (OutStructObject == TBaseStructure<FLinearColor>::Get())
+	{
+		OutStructObject = TBaseStructure<FColor>::Get();
+	}
 
 	return OutPropertyBagType != EPropertyBagPropertyType::None;
 }
@@ -450,10 +457,19 @@ bool URCBehaviourBind::CopyPropertyValueToController(URCController* InController
 	// Float Controller
 	else if (ControllerAsProperty->IsA(FFloatProperty::StaticClass()))
 	{
-		float FloatValue;
-		PropertyHandle->GetValue(FloatValue);
-
-		InController->SetValueFloat(FloatValue);
+		// check also the property handle type since double can be bound to float controllers
+		if (RemoteControlProperty->IsA(FFloatProperty::StaticClass()))
+		{
+			float FloatValue;
+			PropertyHandle->GetValue(FloatValue);
+			InController->SetValueFloat(FloatValue);
+		}
+		else if (RemoteControlProperty->IsA(FDoubleProperty::StaticClass()))
+		{
+			double DoubleValue;
+			PropertyHandle->GetValue(DoubleValue);
+			InController->SetValueFloat(DoubleValue);
+		}
 
 		return true;
 	}

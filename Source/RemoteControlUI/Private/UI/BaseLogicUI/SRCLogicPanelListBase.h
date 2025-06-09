@@ -12,6 +12,7 @@
 #include "UI/Controller/RCControllerModel.h"
 #include "Widgets/SCompoundWidget.h"
 
+class FUICommandList;
 class SRCLogicPanelBase;
 class SRemoteControlPanel;
 
@@ -89,10 +90,13 @@ private:
 protected:
 	TWeakPtr<SWidget> ContextMenuWidgetCached;
 
-	/** Helper function for handling common Delete Item functionality across all child panels (Actions/Behaviours/Controllers)
-	* Currently invoked from each Panel List child class with appropriate template class*/
+	/**
+	 * Helper function for handling common Delete Item functionality across all child panels (Actions/Behaviours/Controllers)
+	 * Currently invoked from each Panel List child class with appropriate template class
+	 * @return true if any items were deleted
+	 */
 	template<class T>
-	void DeleteItemsFromLogicPanel(TArray<TSharedPtr<T>>& ItemsSource, const TArray<TSharedPtr<T>>& SelectedItems)
+	bool DeleteItemsFromLogicPanel(TArray<TSharedPtr<T>>& ItemsSource, const TArray<TSharedPtr<T>>& SelectedItems)
 	{
 		bool bIsDeleted = false;
 		for (const TSharedPtr<T> SelectedItem : SelectedItems)
@@ -101,8 +105,10 @@ protected:
 			{
 				// Remove Model from Data Container
 				const int32 RemoveCount = RemoveModel(SelectedItem);
-				if (ensure(RemoveCount > 0))
+				if (RemoveCount > 0)
 				{
+					bIsDeleted = true;
+
 					// Remove View Model from UI List
 					const int32 RemoveModelItemIndex = ItemsSource.IndexOfByPredicate([SelectedItem](TSharedPtr<T> InModel)
 						{
@@ -112,8 +118,6 @@ protected:
 					if (RemoveModelItemIndex > INDEX_NONE)
 					{
 						ItemsSource.RemoveAt(RemoveModelItemIndex);
-
-						bIsDeleted = true;
 					}
 				}
 			}
@@ -124,7 +128,11 @@ protected:
 			BroadcastOnItemRemoved();
 			Reset();
 		}
+		return bIsDeleted;
 	}
+
+	/** Command list to build context menus for */
+	TSharedPtr<FUICommandList> CommandList;
 
 	/** The parent Remote Control Panel widget*/
 	TWeakPtr<SRemoteControlPanel> RemoteControlPanelWeakPtr;

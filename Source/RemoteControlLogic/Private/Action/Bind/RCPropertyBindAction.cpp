@@ -1,8 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Action/Bind/RCPropertyBindAction.h"
-#include "Action/Bind/RCCustomBindActionUtilities.h"
-#include "Action/RCAction.h"
+#include "Action/Bind/RCCustomBindActionUtilitiesPrivate.h"
 #include "Components/SceneComponent.h"
 #include "Controller/RCController.h"
 #include "Controller/RCCustomControllerUtilities.h"
@@ -235,7 +234,7 @@ void URCPropertyBindAction::Execute() const
 						{
 							if (RemoteControlProperty->IsA(FObjectProperty::StaticClass()))
 							{
-								UE::RCCustomBindActionUtilities::SetTexturePropertyFromPath(RemoteControlEntityAsProperty.ToSharedRef(), StringValue);
+								UE::RCCustomBindActionUtilities::SetTexturePropertyFromPath(RemoteControlEntityAsProperty.ToSharedRef(), Controller, StringValue);
 							}
 						}
 					}

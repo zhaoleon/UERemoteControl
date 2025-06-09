@@ -567,10 +567,15 @@ TSharedPtr<IRemoteControlProtocol> FProtocolBindingViewModel::GetProtocol() cons
 FRemoteControlProtocolMapping* FProtocolBindingViewModel::GetRangesMapping(const FGuid& InRangeId) const
 {
 	check(IsValid());
-	
-	FRemoteControlProtocolMapping* Mapping = GetBinding()->FindMapping(InRangeId);
-	check(InRangeId == Mapping->GetId());
-	return Mapping;
+
+	if (FRemoteControlProtocolBinding* Binding = GetBinding())
+	{
+		FRemoteControlProtocolMapping* Mapping = Binding->FindMapping(InRangeId);
+		ensure(Mapping && InRangeId == Mapping->GetId());
+		return Mapping;
+	}
+
+	return nullptr;
 }
 
 void FProtocolBindingViewModel::Remove() const

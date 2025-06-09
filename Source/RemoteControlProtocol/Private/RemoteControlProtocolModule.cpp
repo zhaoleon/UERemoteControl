@@ -40,6 +40,7 @@ TArray<FName> FRemoteControlProtocolModule::GetProtocolNames() const
 {
 	TArray<FName> ProtocolNames;
 	Protocols.GenerateKeyArray(ProtocolNames);
+	ProtocolNames.Sort(FNameLexicalLess());
 	return ProtocolNames;
 }
 
@@ -103,6 +104,56 @@ void FRemoteControlProtocolModule::EmptyProtocols()
 	Protocols.Empty();
 }
 
+void FRemoteControlProtocolModule::ApplyProtocolBindings(URemoteControlPreset* InPreset) const
+{
+	if (!InPreset)
+	{
+		return;
+	}
+
+	for (TWeakPtr<FRemoteControlProperty> ExposedPropertyWeakPtr : InPreset->GetExposedEntities<FRemoteControlProperty>())
+	{
+		if (TSharedPtr<FRemoteControlProperty> ExposedPropertyPtr = ExposedPropertyWeakPtr.Pin())
+		{
+			for (const FRemoteControlProtocolBinding& Binding : ExposedPropertyPtr->ProtocolBindings)
+			{
+				// Supporting plugin needs to be loaded/protocol available.
+				if (const TSharedPtr<IRemoteControlProtocol> Protocol = GetProtocolByName(Binding.GetProtocolName()))
+				{
+					if (TSharedPtr<TStructOnScope<FRemoteControlProtocolEntity>> ProtocolEntity = Binding.GetRemoteControlProtocolEntityPtr())
+					{
+						Protocol->Unbind(ProtocolEntity);
+						Protocol->Bind(ProtocolEntity);
+					}
+				}
+			}
+		}
+	}
+}
+
+void FRemoteControlProtocolModule::UnapplyProtocolBindings(URemoteControlPreset* InPreset) const
+{
+	if (!InPreset)
+	{
+		return;
+	}
+
+	for (TWeakPtr<FRemoteControlProperty> ExposedPropertyWeakPtr : InPreset->GetExposedEntities<FRemoteControlProperty>())
+	{
+		if (TSharedPtr<FRemoteControlProperty> ExposedPropertyPtr = ExposedPropertyWeakPtr.Pin())
+		{
+			for (const FRemoteControlProtocolBinding& Binding : ExposedPropertyPtr->ProtocolBindings)
+			{
+				// Supporting plugin needs to be loaded/protocol available.
+				if (const TSharedPtr<IRemoteControlProtocol> Protocol = GetProtocolByName(Binding.GetProtocolName()))
+				{
+					Protocol->Unbind(Binding.GetRemoteControlProtocolEntityPtr());
+				}
+			}
+		}
+	}
+}
+
 void FRemoteControlProtocolModule::OnPostLoadRemoteControlPreset(URemoteControlPreset* InPreset) const
 {
 	// Avoid protocol binding if the preset is not valid or while cooking.
@@ -110,28 +161,9 @@ void FRemoteControlProtocolModule::OnPostLoadRemoteControlPreset(URemoteControlP
 	{
 		return;
 	}
-	
-	for(TWeakPtr<FRemoteControlProperty> ExposedPropertyWeakPtr : InPreset->GetExposedEntities<FRemoteControlProperty>())
-	{
-		if (TSharedPtr<FRemoteControlProperty> ExposedPropertyPtr = ExposedPropertyWeakPtr.Pin())
-		{
-			for(FRemoteControlProtocolBinding& Binding : ExposedPropertyPtr->ProtocolBindings)
-			{
-				const TSharedPtr<IRemoteControlProtocol> Protocol = GetProtocolByName(Binding.GetProtocolName());
-				// Supporting plugin needs to be loaded/protocol available.
-				if(Protocol.IsValid())
-				{
-					Protocol->Bind(Binding.GetRemoteControlProtocolEntityPtr());
-				}
-			}	
-		}
-		else
-		{
-			ensure(false);
-		}
-	}
-}
 
+	ApplyProtocolBindings(InPreset);
+}
 
 IMPLEMENT_MODULE(FRemoteControlProtocolModule, RemoteControlProtocol);
 

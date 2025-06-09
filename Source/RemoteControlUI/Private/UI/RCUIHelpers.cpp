@@ -2,18 +2,24 @@
 
 #include "RCUIHelpers.h"
 
+#include "Behaviour/Builtin/Bind/RCBehaviourBind.h"
 #include "Controller/RCController.h"
-#include "Editor.h"
-#include "EdGraphSchema_K2.h"
+#include "Controller/RCCustomControllerUtilities.h"
 #include "EdGraph/EdGraphPin.h"
+#include "EdGraphSchema_K2.h"
+#include "Editor.h"
+#include "Engine/Texture2D.h"
 #include "Framework/Application/SlateApplication.h"
 #include "GraphEditorSettings.h"
 #include "IDetailTreeNode.h"
 #include "IPropertyRowGenerator.h"
+#include "Kismet/KismetSystemLibrary.h"
 #include "Modules/ModuleManager.h"
 #include "PropertyEditorModule.h"
 #include "PropertyHandle.h"
 #include "RCVirtualProperty.h"
+#include "RemoteControlField.h"
+#include "RemoteControlPreset.h"
 #include "TimerManager.h"
 #include "Widgets/Layout/SBorder.h"
 #include "Widgets/Layout/SBox.h"
@@ -212,4 +218,80 @@ TSharedRef<SWidget> UE::RCUIHelpers::GetTypeColorWidget(const FProperty* InPrope
 			];
 
 	return TypeColorWidget;
+}
+
+UObject* UE::RCUIHelpers::GetEntityOwner(const TSharedPtr<const FRemoteControlEntity>& InEntity)
+{
+	if (UObject* BoundObject = InEntity->GetBoundObject())
+	{
+		if (AActor* OwnerActor = BoundObject->GetTypedOuter<AActor>())
+		{
+			return OwnerActor;
+		}
+		return BoundObject;
+	}
+	return nullptr;
+}
+
+FText UE::RCUIHelpers::GenerateControllerDescriptionFromEntity(const TSharedPtr<const FRemoteControlEntity>& InEntity)
+{
+	if (!InEntity.IsValid())
+	{
+		return FText::GetEmpty();
+	}
+
+	return FText::Format(INVTEXT("{0} - {1}")
+		, FText::FromString(UKismetSystemLibrary::GetDisplayName(GetEntityOwner(InEntity)))
+		, FText::FromName(InEntity->GetLabel()));
+}
+
+URCController* UE::RCUIHelpers::CreateControllerFromEntity(URemoteControlPreset* InPreset, const TSharedPtr<const FRemoteControlProperty>& InRemoteControlProperty)
+{
+	if (!InPreset || !InRemoteControlProperty.IsValid())
+	{
+		return nullptr;
+	}
+
+	// Derive the input data needed for creating a new Controller
+	FProperty* Property = InRemoteControlProperty->GetProperty();
+	EPropertyBagPropertyType PropertyBagType = EPropertyBagPropertyType::None;
+	UObject* StructObject = nullptr;
+
+	// In the Logic realm we use a single type like (eg: String / Int) to represent various related types (String/Name/Text, Int32, Int64, etc)
+	// For this reason explicit mapping conversion is required between a given FProperty type and the desired Controller type
+	if (!URCBehaviourBind::GetPropertyBagTypeFromFieldProperty(Property, PropertyBagType, StructObject))
+	{
+		return nullptr;
+	}
+
+	// Preparation step, in case we are dealing with a custom controller
+	FString CustomControllerName = TEXT("");
+	if (StructObject == UTexture::StaticClass() || StructObject == UTexture2D::StaticClass())
+	{
+		if (PropertyBagType == EPropertyBagPropertyType::String)
+		{
+			StructObject = nullptr;
+			CustomControllerName = UE::RCCustomControllers::CustomTextureControllerName;
+		}
+	}
+
+	// Create a Controller of matching type
+	URCController* const NewController = CastChecked<URCController>(InPreset->AddController(URCController::StaticClass(), PropertyBagType, StructObject));
+	NewController->DisplayIndex = InPreset->GetNumControllers() - 1;
+	NewController->Description = GenerateControllerDescriptionFromEntity(InRemoteControlProperty);
+
+	// Add metadata to this controller, if this is a custom controller
+	if (!CustomControllerName.IsEmpty())
+	{
+		const TMap<FName, FString>& CustomControllerMetaData = UE::RCCustomControllers::GetCustomControllerMetaData(CustomControllerName);
+		for (const TPair<FName, FString>& Pair : CustomControllerMetaData)
+		{
+			NewController->SetMetadataValue(Pair.Key, Pair.Value);
+		}
+	}
+
+	// Transfer property value from Exposed Property to the New Controller.
+	// The goal is to keep values synced for a Controller newly created via "Auto Bind"
+	URCBehaviourBind::CopyPropertyValueToController(NewController, InRemoteControlProperty.ToSharedRef());
+	return NewController;
 }

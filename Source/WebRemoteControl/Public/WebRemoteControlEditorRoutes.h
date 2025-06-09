@@ -10,7 +10,6 @@
 #include "IRemoteControlModule.h"
 #include "HttpServerResponse.h"
 #include "RemoteControlRoute.h"
-#include "WebRemoteControlExternalLogger.h"
 
 struct FHttpServerRequest;
 class FWebRemoteControlModule;
@@ -22,9 +21,6 @@ class FWebRemoteControlModule;
 class FWebRemoteControlEditorRoutes
 {
 public:
-	FWebRemoteControlEditorRoutes() = default;
-	FWebRemoteControlEditorRoutes(FVTableHelper& Helper);
-	~FWebRemoteControlEditorRoutes() = default;
 	/** Register the editor routes to the web remote control module. */
 	void RegisterRoutes(FWebRemoteControlModule* WebRemoteControl);
 

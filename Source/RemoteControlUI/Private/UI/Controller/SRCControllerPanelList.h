@@ -9,24 +9,24 @@
 #include "Widgets/Layout/SBorder.h"
 
 class FDragDropOperation;
-struct FRCPanelStyle;
 class FEditPropertyChain;
 class FRCControllerModel;
 class FRCLogicModeBase;
 class IPropertyRowGenerator;
-class ITableRow;
 class ITableBase;
+class ITableRow;
 class SDropTarget;
 class SRCControllerPanel;
 class SRemoteControlPanel;
 class STableViewBase;
 class URCController;
 class URemoteControlPreset;
+enum class EItemDropZone;
+struct FRCPanelStyle;
 template <typename ItemType> class SListView;
 
 /*
 * ~ FRCControllerDragDrop ~
-*
 * Facilitates drag-drop operation for Controller row drag handles
 */
 class FRCControllerDragDrop final : public FDecoratedDragDropOp
@@ -34,17 +34,12 @@ class FRCControllerDragDrop final : public FDecoratedDragDropOp
 public:
 	DRAG_DROP_OPERATOR_TYPE(FRCControllerDragDropOp, FDecoratedDragDropOp)
 
-	using WidgetType = SWidget;
-
-	FRCControllerDragDrop(TSharedPtr<SWidget> InWidget, const FGuid& InId)
-		: Id(InId)
+	explicit FRCControllerDragDrop(const TArray<TSharedPtr<FRCControllerModel>>& InControllers)
+		: ControllersWeak(InControllers)
 	{
 	}
 
-	FGuid GetId() const
-	{
-		return Id;
-	}
+	TArray<TSharedPtr<FRCControllerModel>> ResolveControllers() const;
 
 	virtual void OnDrop(bool bDropWasHandled, const FPointerEvent& MouseEvent) override
 	{
@@ -52,7 +47,7 @@ public:
 	}
 
 private:
-	FGuid Id;
+	TArray<TWeakPtr<FRCControllerModel>> ControllersWeak;
 };
 
 /*
@@ -88,6 +83,9 @@ public:
 	/** Deletes currently selected items from the list view */
 	virtual void DeleteSelectedPanelItems() override;
 
+	/** Returns the controllers selected by the user (if any). */
+	TArray<TSharedPtr<FRCControllerModel>> GetSelectedControllers() const;
+
 	/** Returns the UI items currently selected by the user (if any). */
 	virtual TArray<TSharedPtr<FRCLogicModeBase>> GetSelectedLogicItems() override;
 
@@ -105,15 +103,20 @@ public:
 	/** Finds a Controller UI model by unique Id */
 	TSharedPtr<FRCControllerModel> FindControllerItemById(const FGuid& InId) const;
 
-	/** Given an item to move and an anchor row this function moves the item to the position of the anchor
-	* and pushes all other rows below */
-	void ReorderControllerItem(TSharedRef<FRCControllerModel> ItemToMove, TSharedRef<FRCControllerModel> AnchorItem);
+	/** Finds the Controller UI models by unique Id */
+	TArray<TSharedPtr<FRCControllerModel>> FindControllerItemsById(TConstArrayView<FGuid> InIds);
 
-	/** Returns the currently selected Controller UI Item */
-	TSharedPtr<FRCControllerModel> GetSelectedControllerItem() const
-	{
-		return SelectedControllerItemWeakPtr.Pin();
-	}
+	/** Finds the Controller UI models by their controllers */
+	TArray<TSharedPtr<FRCControllerModel>> FindControllerItemsByObject(TConstArrayView<URCController*> InControllers);
+
+	/** Finds the index of the controller item */
+	int32 GetDropIndex(const TSharedPtr<FRCControllerModel>& InItem, EItemDropZone InDropZone) const;
+
+	/**
+	 * Called to moves the given controller items to the given target index, pushing all other rows below
+	 * returns true if the operation was successful
+	 */
+	bool ReorderControllerItems(TConstArrayView<TSharedPtr<FRCControllerModel>> InItemsToMove, int32 InTargetIndex);
 
 	/** Requests the panel to refresh its contents from the latest list of Controllers */
 	void RequestRefresh()
@@ -125,7 +128,7 @@ public:
 	bool OnAllowDrop(TSharedPtr<FDragDropOperation> DragDropOperation);
 
 	/** Drag-Drop action delegate for the Controllers Panel List */
-	FReply OnControllerListViewDragDrop(TSharedPtr<FDragDropOperation> DragDropOperation);
+	FReply OnControllerListViewDragDrop(TSharedPtr<FDragDropOperation> InDragDropOperation);
 
 	/** Fetches the Remote Control preset associated with the parent panel */
 	virtual URemoteControlPreset* GetPreset() override;
@@ -149,8 +152,6 @@ public:
 	* 
 	* This flag is set if any Controller has active drag-drop focus, in which case we disable the first drag-drop zone. This is purely for visual clarity*/
 	bool bIsAnyControllerItemEligibleForDragDrop = false;
-
-private:
 
 	/** OnGenerateRow delegate for the Actions List View */
 	TSharedRef<ITableRow> OnGenerateWidgetForList( TSharedPtr<FRCControllerModel> InItem, const TSharedRef<STableViewBase>& OwnerTable );
@@ -186,10 +187,10 @@ private:
 	 * Called when a Controller Value changes.
 	 * Currently used to update handled controllers, in case of MultiControllers.
 	 */
-	void OnControllerValueChanged(URCVirtualPropertyBase* InController);
+	void OnControllerValueChanged(TSharedPtr<FRCControllerModel> InControllerModel, bool bInIsMultiController);
 
-	/** Creates a new Controller for the given Remote Control Property and also binds to it */
-	void CreateAutoBindForProperty(TSharedPtr<const FRemoteControlProperty> RemoteControlProperty);
+	/** Creates a new Controller for the given Remote Control Property and also binds to it. Returns true if operation succeeded, false if nothing happened */
+	bool CreateAutoBindForProperty(TSharedPtr<const FRemoteControlProperty> InRemoteControlProperty);
 
 	/** The row generator used to represent each Controller as a row, when used with SListView */
 	TSharedPtr<IPropertyRowGenerator> PropertyRowGenerator;

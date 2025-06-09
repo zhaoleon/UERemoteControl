@@ -17,8 +17,8 @@ namespace SetAssetByPathBehaviourHelpers
 {
 	const FString ContentFolder = FString(TEXT("/Game/"));
 	const FString InputToken = FString(TEXT("{INPUT}"));
-	const FName TargetProperty = FName(TEXT("Target Property"));
-	const FName DefaultInput = FName(TEXT("Default Input"));
+	const FName TargetProperty = FName(TEXT("TargetProperty"));
+	const FName DefaultInput = FName(TEXT("DefaultInput"));
 	const FName SetAssetByPathBehaviour = FName(TEXT("Set Asset By Path"));
 }
 
@@ -109,6 +109,7 @@ public:
 
 	//~ Begin URCBehaviour interface
 	virtual void Initialize() override;
+	virtual bool SupportPropertyId() const override { return false; }
 	virtual void UpdateEntityIds(const TMap<FGuid, FGuid>& InEntityIdMap) override;
 	//~ End URCBehaviour interface
 
@@ -128,6 +129,9 @@ public:
 
 	/** Returns a Pointer to the current Target Entity */
 	TWeakPtr<const FRemoteControlEntity> GetTargetEntity() const;
+
+	/** Returns the current Target Entity Id */
+	const FGuid& GetTargetEntityId() const;
 
 	/** Auxiliary Function to apply to update the Target Texture */
 	void UpdateTargetEntity();

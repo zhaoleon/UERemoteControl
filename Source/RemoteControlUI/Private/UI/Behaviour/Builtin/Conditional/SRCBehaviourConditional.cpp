@@ -54,6 +54,7 @@ void SRCBehaviourConditional::Construct(const FArguments& InArgs, TSharedRef<FRC
 	}
 
 	ChildSlot
+	.Padding(8.f, 4.f)
 	[
 		SNew(SHorizontalBox)
 		// Conditions Panel

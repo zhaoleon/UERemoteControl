@@ -86,10 +86,11 @@ int32 URCController::RemoveBehaviour(URCBehaviour* InBehaviour)
 int32 URCController::RemoveBehaviour(const FGuid InBehaviourId)
 {
 	int32 RemovedCount = 0;
-	
-	for (auto BehaviourIt = Behaviours.CreateIterator(); BehaviourIt; ++BehaviourIt)
+
+	for (TSet<TObjectPtr<URCBehaviour>>::TIterator BehaviourIt(Behaviours); BehaviourIt; ++BehaviourIt)
 	{
-		if (const URCBehaviour* Behaviour = *BehaviourIt; Behaviour->Id == InBehaviourId)
+		const URCBehaviour* Behaviour = *BehaviourIt;
+		if (Behaviour && Behaviour->Id == InBehaviourId)
 		{
 			BehaviourIt.RemoveCurrent();
 			RemovedCount++;
@@ -108,7 +109,7 @@ void URCController::ExecuteBehaviours(const bool bIsPreChange/* = false*/)
 {
 	for (URCBehaviour* Behaviour : Behaviours)
 	{
-		if (!Behaviour->bIsEnabled)
+		if (!Behaviour || !Behaviour->bIsEnabled)
 		{
 			continue;
 		}

@@ -3,7 +3,6 @@
 #include "SRCVirtualPropertyWidget.h"
 
 #include "Framework/MultiBox/MultiBoxBuilder.h"
-#include "Interfaces/IMainFrameModule.h"
 #include "PropertyHandle.h"
 #include "RCVirtualProperty.h"
 #include "SlateOptMacros.h"

@@ -5,7 +5,6 @@
 #include "Commands/RemoteControlCommands.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "IRemoteControlModule.h"
-#include "Interfaces/IMainFrameModule.h"
 #include "RemoteControlPanelStyle.h"
 #include "RemoteControlPreset.h"
 #include "SDropTarget.h"
@@ -139,9 +138,7 @@ void SRCPanelGroup::GetNodeChildren(TArray<TSharedPtr<SRCPanelTreeNode>>& OutChi
 
 TSharedPtr<SWidget> SRCPanelGroup::GetContextMenu()
 {
-	IMainFrameModule& MainFrame = FModuleManager::Get().LoadModuleChecked<IMainFrameModule>("MainFrame");
-
-	FMenuBuilder MenuBuilder(true, MainFrame.GetMainFrameCommandBindings());
+	FMenuBuilder MenuBuilder(/*bShouldCloseWindowAfterMenuSelection*/true, CommandList);
 
 	MenuBuilder.BeginSection("Common");
 
@@ -209,7 +206,7 @@ bool SRCPanelGroup::OnAllowDropFromOtherGroup(TSharedPtr<FDragDropOperation> Dra
 		{
 			if (OnGetGroupId.IsBound())
 			{
-				for (FGuid SelectedId : DragDropOp->GetSelectedIds())
+				for (FGuid SelectedId : DragDropOp->GetSelectedFieldsId())
 				{
 					const FGuid OriginGroupId = OnGetGroupId.Execute(SelectedId);
 					if (OriginGroupId != Id)

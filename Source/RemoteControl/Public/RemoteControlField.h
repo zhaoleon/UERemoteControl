@@ -32,6 +32,13 @@ struct REMOTECONTROL_API FRemoteControlField : public FRemoteControlEntity
 
 	FRemoteControlField() = default;
 
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
+	FRemoteControlField(const FRemoteControlField&) = default;
+	FRemoteControlField(FRemoteControlField&&) = default;
+	FRemoteControlField& operator=(const FRemoteControlField&) = default;
+	FRemoteControlField& operator=(FRemoteControlField&&) = default;
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
+
 	/**
 	 * Resolve the field's owners using the section's top level objects.
 	 * @param SectionObjects The top level objects of the section.
@@ -46,16 +53,24 @@ struct REMOTECONTROL_API FRemoteControlField : public FRemoteControlEntity
 	//~ End FRemoteControlEntity interface
 
 	/** Disables the given mask. */
+	UE_DEPRECATED(5.6, "ClearMask is deprecated. Use per-protocol-binding masking instead.")
 	virtual void ClearMask(ERCMask InMaskBit);
+
 	/** Enables the given mask. */
+	UE_DEPRECATED(5.6, "EnableMask is deprecated. Use per-protocol-binding masking instead.")
 	virtual void EnableMask(ERCMask InMaskBit);
+
 	/** Returns true if the given mask is enabled, false otherwise. */
+	UE_DEPRECATED(5.6, "HasMask is deprecated. Use per-protocol-binding masking instead.")
 	virtual bool HasMask(ERCMask InMaskBit) const;
+
 	/** Returns true if this field supports masking. */
+	UE_DEPRECATED(5.6, "SupportsMasking is deprecated. Use per-protocol-binding masking instead.")
 	virtual bool SupportsMasking() const { return false; }
 
 	/** Retrieves the enabled masks. */
-	ERCMask GetActiveMasks() const { return (ERCMask)ActiveMasks; }
+	UE_DEPRECATED(5.6, "GetActiveMasks is deprecated. Use per-protocol-binding masking instead.")
+	ERCMask GetActiveMasks() const;
 
 	/**	Returns whether the field is only available in editor. */
 	bool IsEditorOnly() const { return bIsEditorOnly; }
@@ -109,10 +124,11 @@ protected:
 	/** Whether the field is only available in editor. */
 	UPROPERTY()
 	bool bIsEditorOnly = false;
-	
+
 	/** Holds the actively enabled masks. */
+	UE_DEPRECATED(5.6, "ActiveMasks is deprecated. Use per-protocol-binding masking instead.")
 	UPROPERTY()
-	uint8 ActiveMasks = (uint8)RC_AllMasks;
+	uint8 ActiveMasks_DEPRECATED = (uint8)RC_AllMasks;
 
 protected:
 	FRemoteControlField(URemoteControlPreset* InPreset, EExposedFieldType InType, FName InLabel, FRCFieldPathInfo InFieldPathInfo, const TArray<URemoteControlBinding*> InBindings);
@@ -152,6 +168,7 @@ public:
 	//~ End FRemoteControlEntity interface
 	
 	//~ Begin FRemoteControlField interface
+	UE_DEPRECATED(5.6, "SupportsMasking is deprecated. Use per-protocol-binding masking instead.")
 	virtual bool SupportsMasking() const override;
 	//~ End FRemoteControlField interface
 

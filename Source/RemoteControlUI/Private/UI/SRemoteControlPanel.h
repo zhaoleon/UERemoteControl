@@ -13,40 +13,55 @@
 #include "Widgets/SCompoundWidget.h"
 #include "Widgets/DeclarativeSyntaxSupport.h"
 
-enum class ERCPanels : uint8;
+/** The variety of panels we have in the RC Panel. */
+enum class ERCPanelMode : uint8
+{
+	Controller,
+
+	EntityDetails,
+
+	Protocols,
+
+	OutputLog,
+
+	Live,
+
+	Signature,
+};
+
 class AActor;
-struct EVisibility;
-struct FAssetData;
 class FExposedEntityDragDrop;
-struct FListEntry;
-struct FRCPanelDrawerArgs;
+class FRCBehaviourModel;
+class FRCControllerModel;
 class FRCPanelWidgetRegistry;
-struct FRCPanelStyle;
-struct FRemoteControlEntity;
 class FReply;
-class IToolkitHost;
-class IPropertyRowGenerator;
+class FUICommandList;
 class IPropertyHandle;
+class IPropertyRowGenerator;
+class IToolkitHost;
 class SBox;
 class SClassViewer;
 class SComboButton;
-struct SRCPanelTreeNode;
-class SRCPanelFunctionPicker;
 class SRCActionPanel;
 class SRCLogicPanelBase;
 class SRCPanelDrawer;
 class SRCPanelExposedEntitiesList;
 class SRCPanelFilter;
+class SRCPanelFunctionPicker;
 class SRemoteControlPanel;
 class SSearchBox;
 class STextBlock;
-class URemoteControlPreset;
-
-class URCController;
-class URCBehaviour;
 class URCAction;
-class FRCControllerModel;
-class FRCBehaviourModel;
+class URCBehaviour;
+class URCController;
+class URemoteControlPreset;
+struct EVisibility;
+struct FAssetData;
+struct FListEntry;
+struct FRCPanelDrawerArgs;
+struct FRCPanelStyle;
+struct FRemoteControlEntity;
+struct SRCPanelTreeNode;
 
 DECLARE_DELEGATE_TwoParams(FOnLiveModeChange, TSharedPtr<SRemoteControlPanel> /* Panel */, bool /* bEditModeChange */);
 
@@ -64,7 +79,8 @@ class SRemoteControlPanel : public SCompoundWidget, public FGCObject
 public:
 	// Remote Control Logic Delegates
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnControllerAdded, const FName& /* InPropertyName */);
-	DECLARE_MULTICAST_DELEGATE_OneParam(FOnControllerSelectionChanged, TSharedPtr<FRCControllerModel> /* InControllerItem */);
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnControllerSelectionChanged, TSharedPtr<FRCControllerModel> /* InControllerItem */, ESelectInfo::Type /* Select Type Info */);
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnControllerValueChanged, TSharedPtr<FRCControllerModel> /* InControllerItem */);
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnBehaviourAdded, const URCBehaviour* /* InBehaviour */);
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnBehaviourSelectionChanged, TSharedPtr<FRCBehaviourModel> /* InBehaviourItem */);
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnActionAdded, URCAction* /* InAction */);
@@ -78,6 +94,7 @@ public:
 
 	//~ Begin SWidget interface
 	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime);
+	virtual FReply OnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
 	//~ End SWidget interface
 
 	/**
@@ -109,26 +126,16 @@ public:
 	 * @param InArgs The extension arguments of the property to toggle.
 	 * @param InDesiredName Desired Name for this property if leaved empty RC will deduce it itself
 	 */
-	void ToggleProperty(const FRCExposesPropertyArgs& InArgs, FString InDesiredName = TEXT(""));
-
-	/**
-	 * @return Whether or not the panel is in live mode.
-	 */
-	bool IsInLiveMode() const { return bIsInLiveMode; }
+	void ExecutePropertyAction(const FRCExposesPropertyArgs& InArgs, const FString& InDesiredName = TEXT(""));
 
 	/**
 	 * Get the selected group.
 	 */
 	FGuid GetSelectedGroup() const;
 
-	/**
-	 * Set the edit mode of the panel.
-	 * @param bEditMode The desired mode.
-	 */
-	void SetLiveMode(bool bLiveMode)
-	{
-		bIsInLiveMode = bLiveMode;
-	}
+	bool CanActivateMode(ERCPanelMode InPanelMode) const;
+	bool IsModeActive(ERCPanelMode InPanelMode) const;
+	void SetActiveMode(ERCPanelMode InPanelMode);
 
 	/**
 	 * Get the exposed entity list.
@@ -152,6 +159,14 @@ public:
 		return ActionPanel;
 	}
 
+	TSharedPtr<FUICommandList> GetCommandList() const
+	{
+		return CommandList;
+	}
+
+	/** Retrieves the number of controllers. */
+	int32 NumControllerItems() const;
+
 	/** For Copy UI command - Sets the logic clipboard item and source */
 	void SetLogicClipboardItems(const TArray<UObject*>& InItems, const TSharedPtr<SRCLogicPanelBase>& SourcePanel);
 
@@ -165,22 +180,37 @@ public:
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
 
 private:
+	/** Applies all the protocol bindings within this widget's owning preset to their respective protocols */
+	void ApplyProtocolBindings();
+
+	/** Unapplies all the protocol bindings within this widget's owning preset to their respective protocols */
+	void UnapplyProtocolBindings();
 
 	/** Returns a Helper widget for entity details view and protocol details view. */
 	static TSharedRef<SBox> CreateNoneSelectedWidget();
 
+	TSharedRef<SWidget> BuildLogicModeContent(const TSharedRef<SWidget>& InLogicPanel);
+	TSharedRef<SWidget> BuildEntityDetailsModeContent(const TAttribute<float>& InRatioTop, const TAttribute<float>& InRatioBottom);
+	TSharedRef<SWidget> BuildProtocolsModeContent(const TAttribute<float>& InRatioTop, const TAttribute<float>& InRatioBottom);
+	TSharedRef<SWidget> BuildLiveModeContent(const TSharedRef<SWidget>& InLogicPanel);
+	TSharedRef<SWidget> BuildSignaturesModeContent();
+
 	//~ Remote Control Commands
 	void BindRemoteControlCommands();
+
+	/** Called when object are replaced, blueprint for example */
+	void OnObjectReplaced(const TMap<UObject*, UObject*>& InObjectReplaced);
+
+	/** Called when PIE begins */
+	void PostPIEStarted(const bool bInIsSimulating);
+
+	/** Called when PIE ends */
+	void OnEndPIE(const bool bInIsSimulating);
 
 	/** Register editor events needed to handle reloading objects and blueprint libraries. */
 	void RegisterEvents();
 	/** Unregister editor events */
 	void UnregisterEvents();
-
-	/** Register panels to the drawer. */
-	void RegisterPanels();
-	/** Unregister panels from the drawer. */
-	void UnregisterPanels();
 
 	/** Unexpose a field from the preset. */
 	void Unexpose(const FRCExposesPropertyArgs& InArgs);
@@ -255,7 +285,7 @@ private:
 	void OnEntityUnexposed(URemoteControlPreset* InPreset, const FGuid& InEntityId);
 
 	/** Toggles the logging part of UI */
-	void OnLogCheckboxToggle(ECheckBoxState State);
+	void OnLogCheckboxToggle(ECheckBoxState InState);
 
 	/** Triggers a next frame update of the actor function picker to ensure that added actors are valid. */
 	void UpdateActorFunctionPicker();
@@ -287,25 +317,15 @@ private:
 	bool CanSaveAsset() const;
 
 	/** Called when "Save" is clicked for this asset */
-	void SaveAsset_Execute() const;
+	void SaveAsset() const;
 
 	/** Called to test if "Find in Content Browser" should be enabled for this asset */
 	bool CanFindInContentBrowser() const;
 
 	/** Called when "Find in Content Browser" is clicked for this asset */
-	void FindInContentBrowser_Execute() const;
+	void FindInContentBrowser() const;
 
 	static bool ShouldForceSmallIcons();
-
-	void ToggleProtocolMappings_Execute();
-	bool CanToggleProtocolsMode() const;
-	bool IsInProtocolsMode() const;
-
-	void ToggleLogicEditor_Execute();
-	bool CanToggleLogicPanel() const;
-	bool IsLogicPanelEnabled() const;
-
-	void OnRCPanelToggled(ERCPanels InPanelID);
 
 	/** Called when user attempts to delete a group/exposed entity. */
 	void DeleteEntity_Execute();
@@ -318,6 +338,12 @@ private:
 
 	/** Called to test if user is able to rename a group/exposed entity. */
 	bool CanRenameEntity() const;
+
+	/** Called when user attempts to change property Ids. */
+	void ChangePropertyId_Execute() const;
+
+	/** Called to test if user is able to change property Ids. */
+	bool CanChangePropertyId() const;
 
 	/** Called when user attempts to Copy a logic UI item. */
 	void CopyItem_Execute();
@@ -352,17 +378,32 @@ private:
 	/** Retrieves active logic panel. */
 	TSharedPtr<SRCLogicPanelBase> GetActiveLogicPanel() const;
 
+	/** Get the menu content for the SelectedWorld button */
+	TSharedRef<SWidget> OnGetSelectedWorldButtonContent();
+
+	/** Update the panel for the new World */
+	void UpdatePanelForWorld(const UWorld* InWorld);
+
+	/** try to Open the given preset path */
+	void OpenEmbeddedPreset(const FSoftObjectPath& InPresetToOpenPath);
+
+	/** try to open the editor preset of the current Preset */
+	void OpenEditorEmbeddedPreset();
+
+	/** Handle the TargetWorld change for embedded presets */
+	void OpenPanelForEmbeddedPreset(const UWorld* World);
+
+	/** Handle the TargetWorld ComboButton entries creation */
+	static void CreateTargetWorldButtonDynamicEntries(UToolMenu* InMenu);
+
 private:
 	static const FName DefaultRemoteControlPanelToolBarName;
 	static const FName AuxiliaryRemoteControlPanelToolBarName;
+	static const FName TargetWorldRemoteControlPanelMenuName;
 	/** Holds the preset asset. */
 	TStrongObjectPtr<URemoteControlPreset> Preset;
-	/** Whether the panel is in protocols mode. */
-	bool bIsInProtocolsMode = false;
-	/** Whether the panel is in live (or) operation mode. */
-	bool bIsInLiveMode = false;
-	/** Whether the logic panel is enabled or not. */
-	bool bIsLogicPanelEnabled = false;
+	/** Command list of this panel */
+	TSharedPtr<FUICommandList> CommandList;
 	/** Delegate called when the live mode changes. */
 	FOnLiveModeChange OnLiveModeChange;
 	/** Holds the blueprint library picker */
@@ -412,22 +453,23 @@ private:
 	/** Panel Drawer widget holds all docked panels. */
 	TSharedPtr<SRCPanelDrawer> PanelDrawer;
 	/** Map of Opened Drawers. */
-	TMap<ERCPanels, TSharedRef<FRCPanelDrawerArgs>> RegisteredDrawers;
+	TMap<ERCPanelMode, TSharedRef<FRCPanelDrawerArgs>> RegisteredDrawers;
 	/** Panel Style reference. */
 	const FRCPanelStyle* RCPanelStyle;
 	/** Stores the active panel that is drawn. */
-	ERCPanels ActivePanel;
-	/** Input Preprocessor which catches the Delete Key when Docked. */
-	TSharedPtr<IInputProcessor> InputProcessor;
-
+	ERCPanelMode ActiveMode = ERCPanelMode::Controller;
+	/** Currently selected world name */
+	FString SelectedWorldName;
 	// ~ Remote Control Logic Panels ~
 
 	/** Controller panel UI widget for Remote Control Logic*/
 	TSharedPtr<class SRCControllerPanel> ControllerPanel;
 	/** Behaviour panel UI widget for Remote Control Logic*/
-	TSharedPtr<class SRCBehaviourPanel> BehaviourPanel;
+	TSharedPtr<class SRCBehaviourPanel> BehaviorPanel;
 	/** Action panel UI widget for Remote Control Logic*/
 	TSharedPtr<class SRCActionPanel> ActionPanel;
+	/** Signature panel UI widget */
+	TSharedPtr<class SRCSignaturePanel> SignaturePanel;
 
 	/** LogicClipboardItems - Holds the items copied from a Logic panel
 	*
@@ -450,6 +492,7 @@ public:
 	FOnBehaviourAdded OnBehaviourAdded;
 	FOnActionAdded OnActionAdded;
 	FOnControllerSelectionChanged OnControllerSelectionChanged;
+	FOnControllerValueChanged OnControllerValueChangedDelegate;
 	FOnBehaviourSelectionChanged OnBehaviourSelectionChanged;
 	FOnEmptyControllers OnEmptyControllers;
 	FOnEmptyBehaviours OnEmptyBehaviours;

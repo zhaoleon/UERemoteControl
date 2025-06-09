@@ -15,6 +15,7 @@ void SRCBehaviourBind::Construct(const FArguments& InArgs, TSharedRef<FRCBehavio
 	BindBehaviourItemWeakPtr = InBehaviourItem;
 
 	ChildSlot
+	.Padding(8.f, 4.f)
 	[
 		SNew(SHorizontalBox)
 		// Label
@@ -34,14 +35,14 @@ void SRCBehaviourBind::Construct(const FArguments& InArgs, TSharedRef<FRCBehavio
 		.Padding(FMargin(10.f))
 		[
 			SAssignNew(CheckboxAllowNumericInput, SCheckBox)
-			.IsChecked(false)
+			.IsChecked(ECheckBoxState::Unchecked)
 			.OnCheckStateChanged(this, &SRCBehaviourBind::OnAllowNumericCheckboxChanged)
 		]
 	];
 
 	if (const URCBehaviourBind* BindBehaviour = InBehaviourItem->GetBindBehaviour())
 	{
-		CheckboxAllowNumericInput->SetIsChecked(BindBehaviour->AreNumericInputsAllowedAsStrings());
+		CheckboxAllowNumericInput->SetIsChecked(BindBehaviour->AreNumericInputsAllowedAsStrings() ? ECheckBoxState::Checked : ECheckBoxState::Unchecked);
 	}
 }
 
@@ -53,15 +54,6 @@ void SRCBehaviourBind::OnAllowNumericCheckboxChanged(ECheckBoxState NewState)
 		{
 			// Update flag
 			BindBehaviour->SetAllowNumericInputAsStrings((NewState == ECheckBoxState::Checked));
-
-			// Inform the Action panel that it needs to refresh the Add Action menu list
-			if (TSharedPtr<SRemoteControlPanel> RemoteControlPanel = BehaviourItem->GetRemoteControlPanel())
-			{
-				if (TSharedPtr<SRCActionPanel> ActionPanel = RemoteControlPanel->GetLogicActionPanel())
-				{
-					ActionPanel->RequestRefreshForAddActionsMenu();
-				}
-			}
 		}
 	}
 	

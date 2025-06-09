@@ -154,7 +154,10 @@ void FProtocolRangeViewModel::CopyInputValue(const TSharedPtr<IPropertyHandle>& 
 {
 	check(IsValid());
 
-	GetRangesData()->CopyRawRangeData<FProperty>(InDstHandle);
+	if (FRemoteControlProtocolMapping* RangesData = GetRangesData())
+	{
+		RangesData->CopyRawRangeData<FProperty>(InDstHandle);
+	}
 }
 
 void FProtocolRangeViewModel::SetInputData(const TSharedPtr<IPropertyHandle>& InSrcHandle) const
@@ -191,7 +194,8 @@ void FProtocolRangeViewModel::SetOutputData(const FRCFieldResolvedData& InResolv
 
 	if (InputProxyPropertyContainer.IsValid() && OutputProxyPropertyContainer.IsValid())
 	{
-		FScopedTransaction Transaction(LOCTEXT("SetPresetProtocolOutputData", "Set Preset protocol binding output data"));
+		const bool bShouldActuallyTransact = !GIsTransacting;
+		FScopedTransaction Transaction(LOCTEXT("SetPresetProtocolOutputData", "Set Preset protocol binding output data"), bShouldActuallyTransact);
 		OutputProxyPropertyContainer.Get()->Modify();
 
 		void* SrcPropertyData = InResolvedData.Field->ContainerPtrToValuePtr<void>(InResolvedData.ContainerAddress);

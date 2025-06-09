@@ -37,11 +37,12 @@
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Input/SComboButton.h"
 #include "Widgets/Input/SCheckBox.h"
+#include "Widgets/Input/SComboButton.h"
 #include "Widgets/Layout/SBox.h"
 
 #define LOCTEXT_NAMESPACE "SRCActionPanel"
 
-TSharedRef<SBox> SRCActionPanel::CreateNoneSelectedWidget()
+TSharedRef<SBox> SRCActionPanel::GetNoneSelectedWidget()
 {
 	return SNew(SBox)
 	.Padding(0.f)
@@ -63,7 +64,6 @@ void SRCActionPanel::Construct(const FArguments& InArgs, const TSharedRef<SRemot
 	
 	RCPanelStyle = &FRemoteControlPanelStyle::Get()->GetWidgetStyle<FRCPanelStyle>("RemoteControlPanel.MinorPanel");
 
-	WrappedBoxWidget = SNew(SBox);
 	UpdateWrappedWidget();
 	
 	ChildSlot
@@ -74,17 +74,6 @@ void SRCActionPanel::Construct(const FArguments& InArgs, const TSharedRef<SRemot
 
 	// Register delegates
 	InPanel->OnBehaviourSelectionChanged.AddSP(this, &SRCActionPanel::OnBehaviourSelectionChanged);
-
-	if (URemoteControlPreset* Preset = GetPreset())
-	{
-		Preset->Layout.OnFieldAdded().AddSP(this, &SRCActionPanel::OnRemoteControlFieldAdded);
-		Preset->Layout.OnFieldDeleted().AddSP(this, &SRCActionPanel::OnRemoteControlFieldDeleted);
-		if (const TObjectPtr<URemoteControlPropertyIdRegistry> Registry = Preset->GetPropertyIdRegistry())
-		{
-			Registry->OnPropertyIdUpdated().AddSPLambda(this, [this](){ bAddActionMenuNeedsRefresh = true; });
-			Registry->OnPropertyIdActionNeedsRefresh().AddSPLambda(this, [this](){ bAddActionMenuNeedsRefresh = true; });
-		}
-	}
 }
 
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
@@ -97,117 +86,23 @@ void SRCActionPanel::OnBehaviourSelectionChanged(TSharedPtr<FRCBehaviourModel> I
 
 void SRCActionPanel::UpdateWrappedWidget(TSharedPtr<FRCBehaviourModel> InBehaviourItem)
 {
+	if (!AreActionPanelWidgetsValid())
+	{
+		CreateActionPanelWidgets();
+	}
+
+	// Update Behavior details widget
+	BehaviourDetailsWidget->SetNewBehavior(InBehaviourItem);
+
 	if (InBehaviourItem.IsValid())
 	{
+		// Create action list based on the behavior
 		ActionPanelList = InBehaviourItem->GetActionsListWidget(SharedThis(this));
-
-		// Action Dock Panel
-		TSharedPtr<SRCMinorPanel> ActionDockPanel = SNew(SRCMinorPanel)
-			.HeaderLabel(LOCTEXT("ActionsLabel", "Actions"))
-			.EnableFooter(false)
-			[
-				ActionPanelList.ToSharedRef()
-			];
-
-		// Add New Action Button
-		bAddActionMenuNeedsRefresh = true;
-
-		const TSharedRef<SWidget> AddNewActionButton = SNew(SComboButton)
-			.AddMetaData<FTagMetaData>(FTagMetaData(TEXT("Add Action")))
-			.HAlign(HAlign_Center)
-			.VAlign(VAlign_Center)
-			.ButtonStyle(&RCPanelStyle->FlatButtonStyle)
-			.ForegroundColor(FSlateColor::UseForeground())
-			.CollapseMenuOnParentFocus(true)
-			.HasDownArrow(false)
-			.ContentPadding(FMargin(4.f, 2.f))
-			.ButtonContent()
-			[
-				SNew(SBox)
-				.WidthOverride(RCPanelStyle->IconSize.X)
-				.HeightOverride(RCPanelStyle->IconSize.Y)
-				[
-					SNew(SImage)
-					.ColorAndOpacity(FSlateColor::UseForeground())
-					.Image(FAppStyle::GetBrush("Icons.PlusCircle"))
-				]
-			]
-			.OnGetMenuContent(this, &SRCActionPanel::GetActionMenuContentWidget);
-		
-		// Add All Button
-		TSharedRef<SWidget> AddAllActionsButton = SNew(SButton)
-			.AddMetaData<FTagMetaData>(FTagMetaData(TEXT("Add All Actions")))
-			.HAlign(HAlign_Center)
-			.VAlign(VAlign_Center)
-			.ForegroundColor(FSlateColor::UseForeground())
-			.ButtonStyle(&RCPanelStyle->FlatButtonStyle)
-			.ToolTipText(LOCTEXT("AddAllToolTip", "Adds all the available actions."))
-			.OnClicked(this, &SRCActionPanel::OnAddAllFields)
-			.Visibility(this, &SRCActionPanel::HandleAddAllButtonVisibility)
-			[
-				SNew(SBox)
-				.WidthOverride(RCPanelStyle->IconSize.X)
-				.HeightOverride(RCPanelStyle->IconSize.Y)
-				[
-					SNew(SImage)
-					.ColorAndOpacity(FSlateColor::UseForeground())
-					.Image(FAppStyle::GetBrush("Icons.Duplicate"))
-				]
-			];
-
-		// Add All Button
-		const TSharedRef<SWidget> AddAllSelectedActionsButton = SNew(SButton)
-			.AddMetaData<FTagMetaData>(FTagMetaData(TEXT("Add All Selected Fields")))
-			.HAlign(HAlign_Center)
-			.VAlign(VAlign_Center)
-			.ForegroundColor(FSlateColor::UseForeground())
-			.ButtonStyle(&RCPanelStyle->FlatButtonStyle)
-			.ToolTipText(LOCTEXT("RCAddAllSelectedToolTip", "Adds all the selected fields."))
-			.OnClicked(this, &SRCActionPanel::OnAddAllSelectedFields)
-			.Visibility(this, &SRCActionPanel::HandleAddAllButtonVisibility)
-			[
-				SNew(SBox)
-				.WidthOverride(RCPanelStyle->IconSize.X)
-				.HeightOverride(RCPanelStyle->IconSize.Y)
-				[
-					SNew(SImage)
-					.ColorAndOpacity(FSlateColor::UseForeground())
-					.Image(FAppStyle::GetBrush("DataLayerBrowser.AddSelection"))
-				]
-			];
-
-		ActionDockPanel->AddHeaderToolbarItem(EToolbar::Left, AddNewActionButton);
-		ActionDockPanel->AddHeaderToolbarItem(EToolbar::Right, AddAllSelectedActionsButton);
-		ActionDockPanel->AddHeaderToolbarItem(EToolbar::Right, AddAllActionsButton);
-
-		TSharedRef<SRCMajorPanel> ActionsPanel = SNew(SRCMajorPanel)
-			.EnableFooter(false)
-			.EnableHeader(false)
-			.ChildOrientation(Orient_Vertical);
-
-		if (InBehaviourItem->HasBehaviourDetailsWidget())
-		{
-			// Header Dock Panel
-			TSharedPtr<SRCMinorPanel> BehaviourDetailsPanel = SNew(SRCMinorPanel)
-				.EnableHeader(false)
-				[
-					SAssignNew(BehaviourDetailsWidget, SRCBehaviourDetails, SharedThis(this), InBehaviourItem.ToSharedRef())
-				];
-
-			// Panel size of zero forces use of "SizeToContent" ensuring that each Behaviour only takes up as much space as necessary
-			ActionsPanel->AddPanel(BehaviourDetailsPanel.ToSharedRef(), 0.f);
-		}
-		ActionsPanel->AddPanel(ActionDockPanel.ToSharedRef(), 0.5f);
-
-		WrappedBoxWidget->SetContent(ActionsPanel);
+		ActionDockPanel->SetContent(ActionPanelList.ToSharedRef());
 
 		const bool bIsBehaviourEnabled = InBehaviourItem->IsBehaviourEnabled();
 		InBehaviourItem->RefreshIsBehaviourEnabled(bIsBehaviourEnabled);
 		RefreshIsBehaviourEnabled(bIsBehaviourEnabled);
-	}
-	else
-	{
-		WrappedBoxWidget->SetContent(CreateNoneSelectedWidget());
 	}
 }
 
@@ -244,15 +139,6 @@ void SRCActionPanel::RefreshIsBehaviourEnabled(const bool bIsEnabled)
 
 TSharedRef<SWidget> SRCActionPanel::GetActionMenuContentWidget()
 {
-	if (AddNewActionMenuWidget && !bAddActionMenuNeedsRefresh)
-	{
-		return AddNewActionMenuWidget.ToSharedRef();
-	}
-
-	// Either we are creating the menu the first time, or the list needs to be refreshed
-	// The latter can occur either when a remote control property is added or removed, or when a behaiour's CanHaveActionForField logic has changed
-	// For example, if the user sets the "Allow numeric input as Strings" flag for Bind Behaviour then we need to recalculate the list of eligible actions.
-
 	constexpr bool bShouldCloseWindowAfterMenuSelection = true;
 	FMenuBuilder MenuBuilder(bShouldCloseWindowAfterMenuSelection, nullptr);
 
@@ -335,11 +221,187 @@ TSharedRef<SWidget> SRCActionPanel::GetActionMenuContentWidget()
 		}
 	}
 
-	bAddActionMenuNeedsRefresh = false; // reset
+	return MenuBuilder.MakeWidget();
+}
 
-	AddNewActionMenuWidget = MenuBuilder.MakeWidget();
+void SRCActionPanel::CreateActionPanelWidgets()
+{
+	// Action Dock Panel
+	if (!ActionDockPanel.IsValid())
+	{
+		ActionDockPanel = SNew(SRCMinorPanel)
+			.HeaderLabel(LOCTEXT("ActionsLabel", "Actions"))
+			.EnableHeader(true)
+			.EnableFooter(false);
+	}
 
-	return AddNewActionMenuWidget.ToSharedRef();
+	bool bIsAnyToolbarItemCreated = false;
+
+	// Add new action combo button
+	if (!AddNewActionButton.IsValid())
+	{
+		bIsAnyToolbarItemCreated = true;
+
+		AddNewActionButton = SNew(SComboButton)
+			.AddMetaData<FTagMetaData>(FTagMetaData(TEXT("Add Action")))
+			.HAlign(HAlign_Center)
+			.VAlign(VAlign_Center)
+			.ButtonStyle(&RCPanelStyle->FlatButtonStyle)
+			.ForegroundColor(FSlateColor::UseForeground())
+			.CollapseMenuOnParentFocus(true)
+			.HasDownArrow(false)
+			.ContentPadding(FMargin(4.f, 2.f))
+			.ButtonContent()
+			[
+				SNew(SBox)
+				.WidthOverride(RCPanelStyle->IconSize.X)
+				.HeightOverride(RCPanelStyle->IconSize.Y)
+				[
+					SNew(SImage)
+					.ColorAndOpacity(FSlateColor::UseForeground())
+					.Image(FAppStyle::GetBrush("Icons.PlusCircle"))
+				]
+			]
+			.MenuContent()
+			[
+				GetActionMenuContentWidget()
+			];
+		AddNewActionButton->SetOnGetMenuContent(FOnGetContent::CreateSP(this, &SRCActionPanel::GetActionMenuContentWidget));
+	}
+
+	// Add all button
+	if (!AddAllActionsButton.IsValid())
+	{
+		bIsAnyToolbarItemCreated = true;
+
+		AddAllActionsButton = SNew(SButton)
+			.AddMetaData<FTagMetaData>(FTagMetaData(TEXT("Add All Actions")))
+			.HAlign(HAlign_Center)
+			.VAlign(VAlign_Center)
+			.ForegroundColor(FSlateColor::UseForeground())
+			.ButtonStyle(&RCPanelStyle->FlatButtonStyle)
+			.ToolTipText(LOCTEXT("AddAllToolTip", "Adds all the available actions."))
+			.OnClicked(this, &SRCActionPanel::OnAddAllFields)
+			.Visibility(this, &SRCActionPanel::HandleAddAllButtonVisibility)
+			[
+				SNew(SBox)
+				.WidthOverride(RCPanelStyle->IconSize.X)
+				.HeightOverride(RCPanelStyle->IconSize.Y)
+				[
+					SNew(SImage)
+					.ColorAndOpacity(FSlateColor::UseForeground())
+					.Image(FAppStyle::GetBrush("Icons.Duplicate"))
+				]
+			];
+	}
+
+	// Add all selected button
+	if (!AddAllSelectedActionsButton.IsValid())
+	{
+		bIsAnyToolbarItemCreated = true;
+
+		AddAllSelectedActionsButton = SNew(SButton)
+			.AddMetaData<FTagMetaData>(FTagMetaData(TEXT("Add All Selected Fields")))
+			.HAlign(HAlign_Center)
+			.VAlign(VAlign_Center)
+			.ForegroundColor(FSlateColor::UseForeground())
+			.ButtonStyle(&RCPanelStyle->FlatButtonStyle)
+			.ToolTipText(LOCTEXT("RCAddAllSelectedToolTip", "Adds all the selected fields."))
+			.OnClicked(this, &SRCActionPanel::OnAddAllSelectedFields)
+			.Visibility(this, &SRCActionPanel::HandleAddAllButtonVisibility)
+			[
+				SNew(SBox)
+				.WidthOverride(RCPanelStyle->IconSize.X)
+				.HeightOverride(RCPanelStyle->IconSize.Y)
+				[
+					SNew(SImage)
+					.ColorAndOpacity(FSlateColor::UseForeground())
+					.Image(FAppStyle::GetBrush("DataLayerBrowser.AddSelection"))
+				]
+			];
+	}
+
+	// Adding header toolbar items
+	if (bIsAnyToolbarItemCreated)
+	{
+		ActionDockPanel->ClearHeaderToolbarItems();
+		ActionDockPanel->AddHeaderToolbarItem(EToolbar::Left, AddNewActionButton.ToSharedRef());
+		ActionDockPanel->AddHeaderToolbarItem(EToolbar::Right, AddAllSelectedActionsButton.ToSharedRef());
+		ActionDockPanel->AddHeaderToolbarItem(EToolbar::Right, AddAllActionsButton.ToSharedRef());
+	}
+
+	// Behavior Details widget
+	if (!BehaviourDetailsWidget.IsValid())
+	{
+		BehaviourDetailsWidget = SNew(SRCBehaviourDetails, SharedThis(this), nullptr);
+	}
+
+	// Behavior Details panel
+	if (!BehaviorDetailsPanel.IsValid())
+	{
+		BehaviorDetailsPanel = SNew(SRCMinorPanel)
+			.EnableHeader(false)
+			.Visibility_Lambda([this] ()
+			{
+				if (const TSharedPtr<FRCBehaviourModel>& Behavior = SelectedBehaviourItemWeakPtr.Pin())
+				{
+					return Behavior->HasBehaviourDetailsWidget()? EVisibility::Visible : EVisibility::Collapsed;
+				}
+				return EVisibility::Collapsed;
+			})
+		[
+			BehaviourDetailsWidget.ToSharedRef()
+		];
+	}
+
+	// Action Major Panel
+	if (!ActionsPanel.IsValid())
+	{
+		ActionsPanel = SNew(SRCMajorPanel)
+			.EnableFooter(false)
+			.EnableHeader(false)
+			.ChildOrientation(Orient_Vertical);
+
+		if (BehaviorDetailsPanel.IsValid())
+		{
+			// Panel size of zero forces use of "SizeToContent" ensuring that each Behaviour only takes up as much space as necessary
+			ActionsPanel->AddPanel(BehaviorDetailsPanel.ToSharedRef(), 0.f);
+		}
+		ActionsPanel->AddPanel(ActionDockPanel.ToSharedRef(), 0.5f);
+	}
+
+	// Wrapped Box
+	if (!WrappedBoxWidget.IsValid())
+	{
+		WrappedBoxWidget = SNew(SBox)
+		[
+			SNew(SWidgetSwitcher)
+			.WidgetIndex_Lambda([this] () { return SelectedBehaviourItemWeakPtr.IsValid()? 0 : 1; })
+
+			// Index 0 is for valid behavior
+			+ SWidgetSwitcher::Slot()
+			[
+				ActionsPanel.ToSharedRef()
+			]
+
+			// Index 1 is for invalid behavior
+			+ SWidgetSwitcher::Slot()
+			[
+				GetNoneSelectedWidget()
+			]
+		];
+	}
+}
+
+bool SRCActionPanel::AreActionPanelWidgetsValid() const
+{
+	return WrappedBoxWidget.IsValid() &&
+			ActionDockPanel.IsValid() &&
+			AddNewActionButton.IsValid() &&
+			AddAllActionsButton.IsValid() &&
+			AddAllSelectedActionsButton.IsValid() &&
+			BehaviorDetailsPanel.IsValid() &&
+			ActionsPanel.IsValid();
 }
 
 URCAction* SRCActionPanel::AddAction(const TSharedRef<const FRemoteControlField> InRemoteControlField)
@@ -518,14 +580,25 @@ FReply SRCActionPanel::OnAddAllSelectedFields()
 				{
 					if (const TSharedPtr<SRCPanelExposedEntitiesGroup> RCFieldGroup = StaticCastSharedPtr<SRCPanelExposedEntitiesGroup>(RCEntity))
 					{
-						TArray<TSharedPtr<SRCPanelTreeNode>> RCFieldGroupEntities;
-						RCFieldGroup->GetNodeChildren(RCFieldGroupEntities);
-
-						for (const TSharedPtr<SRCPanelTreeNode>& RCFieldGroupEntity : RCFieldGroupEntities)
+						if (RCFieldGroup->GetGroupType() == ERCFieldGroupType::PropertyId)
 						{
-							if (RCFieldGroupEntity->GetRCId().IsValid())
+							const URCBehaviour* Behaviour = BehaviourItem->GetBehaviour();
+							if (Behaviour && Behaviour->SupportPropertyId())
 							{
-								AddSelectedActionLambda(RCFieldGroupEntity);
+								AddAction(RCFieldGroup->GetFieldKey());
+							}
+						}
+						else
+						{
+							TArray<TSharedPtr<SRCPanelTreeNode>> RCFieldGroupEntities;
+							RCFieldGroup->GetNodeChildren(RCFieldGroupEntities);
+
+							for (const TSharedPtr<SRCPanelTreeNode>& RCFieldGroupEntity : RCFieldGroupEntities)
+							{
+								if (RCFieldGroupEntity->GetRCId().IsValid())
+								{
+									AddSelectedActionLambda(RCFieldGroupEntity);
+								}
 							}
 						}
 					}
@@ -535,16 +608,6 @@ FReply SRCActionPanel::OnAddAllSelectedFields()
 	}
 
 	return FReply::Handled();
-}
-
-void SRCActionPanel::OnRemoteControlFieldAdded(const FGuid& GroupId, const FGuid& FieldId, int32 FieldPosition)
-{
-	bAddActionMenuNeedsRefresh = true;
-}
-
-void SRCActionPanel::OnRemoteControlFieldDeleted(const FGuid& GroupId, const FGuid& FieldId, int32 FieldPosition)
-{
-	bAddActionMenuNeedsRefresh = true;
 }
 
 bool SRCActionPanel::IsListFocused() const

@@ -11,20 +11,21 @@ public class WebRemoteControl : ModuleRules
 				"Core",
 				"CoreUObject",
 				"HTTPServer",
-				"Serialization"
-			}
-		);
-
-        PrivateDependencyModuleNames.AddRange(
-			new string[] {
+				"Serialization",
+				"WebSocketNetworking",
 				"AssetRegistry",
 				"HTTP",
 				"Networking",
 				"RemoteControl",
 				"RemoteControlCommon",
 				"RemoteControlLogic",
-				"Sockets",
-				"WebSocketNetworking"
+				"Sockets"
+			}
+		);
+
+        PrivateDependencyModuleNames.AddRange(
+			new string[] {
+
 			}
         );
 

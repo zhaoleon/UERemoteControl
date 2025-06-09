@@ -14,8 +14,9 @@
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "GameFramework/Actor.h"
 #include "IRemoteControlModule.h"
-#include "Interfaces/IMainFrameModule.h"
+#include "Kismet/KismetSystemLibrary.h"
 #include "Modules/ModuleManager.h"
+#include "RCUIHelpers.h"
 #include "RemoteControlBinding.h"
 #include "RemoteControlEntity.h"
 #include "RemoteControlField.h"
@@ -82,13 +83,12 @@ TSharedPtr<FRemoteControlEntity> SRCPanelExposedEntity::GetEntity() const
 
 TSharedPtr<SWidget> SRCPanelExposedEntity::GetContextMenu()
 {
-	IMainFrameModule& MainFrame = FModuleManager::Get().LoadModuleChecked<IMainFrameModule>("MainFrame");
-
-	FMenuBuilder MenuBuilder(true, MainFrame.GetMainFrameCommandBindings());
+	FMenuBuilder MenuBuilder(/*bShouldCloseWindowAfterMenuSelection*/true, CommandList);
 
 	MenuBuilder.BeginSection("Common");
 
 	MenuBuilder.AddMenuEntry(FRemoteControlCommands::Get().RenameEntity, NAME_None, TAttribute<FText>(), TAttribute<FText>(), FSlateIcon(FAppStyle::GetAppStyleSetName(), TEXT("GenericCommands.Rename")));
+	MenuBuilder.AddMenuEntry(FRemoteControlCommands::Get().ChangePropId, NAME_None, TAttribute<FText>(), TAttribute<FText>(), FSlateIcon(FAppStyle::GetAppStyleSetName(), TEXT("Icons.Edit")));
 	MenuBuilder.AddMenuEntry(FRemoteControlCommands::Get().DeleteEntity, NAME_None, TAttribute<FText>(), TAttribute<FText>(), FSlateIcon(FAppStyle::GetAppStyleSetName(), TEXT("GenericCommands.Delete")));
 
 	MenuBuilder.EndSection();
@@ -152,21 +152,27 @@ void SRCPanelExposedEntity::Refresh()
 {
 	if (EntityId.IsValid() && Preset.IsValid())
 	{
-		Initialize(EntityId, Preset.Get(), bLiveMode);
+		FInitParams InitParams;
+		InitParams.Preset = Preset.Get();
+		InitParams.EntityId = EntityId;
+		InitParams.bLiveMode = bLiveMode;
+		InitParams.CommandList = CommandList;
+		Initialize(InitParams);
 	}
 }
 
-void SRCPanelExposedEntity::Initialize(const FGuid& InEntityId, URemoteControlPreset* InPreset, const TAttribute<bool>& InbLiveMode)
+void SRCPanelExposedEntity::Initialize(const FInitParams& InParams)
 {
-	EntityId = InEntityId;
-	Preset = InPreset;
-	bLiveMode = InbLiveMode;
+	EntityId = InParams.EntityId;
+	Preset = InParams.Preset;
+	bLiveMode = InParams.bLiveMode;
+	CommandList = InParams.CommandList;
 
 	RCPanelStyle = &FRemoteControlPanelStyle::Get()->GetWidgetStyle<FRCPanelStyle>("RemoteControlPanel.MinorPanel");
 
-	if (ensure(InPreset))
+	if (ensure(InParams.Preset))
 	{
-		if (const TSharedPtr<FRemoteControlEntity> RCEntity = InPreset->GetExposedEntity(InEntityId).Pin())
+		if (const TSharedPtr<FRemoteControlEntity> RCEntity = InParams.Preset->GetExposedEntity(InParams.EntityId).Pin())
 		{
 			const FString BindingPath = RCEntity->GetLastBindingPath().ToString();
 			CachedLabel = RCEntity->GetLabel();
@@ -178,27 +184,14 @@ void SRCPanelExposedEntity::Initialize(const FGuid& InEntityId, URemoteControlPr
 				CachedFieldPath = RCProperty->FieldPathInfo.ToString();
 			}
 
-			FName OwnerFName;
+			CachedOwnerPathName = NAME_None;
+
 			// If the binding is valid, display the actor label if possible
-			if (UObject* Object = RCEntity->GetBoundObject())
+			if (UObject* Owner = UE::RCUIHelpers::GetEntityOwner(RCEntity))
 			{
 				bValidBinding = true;
-				
-				if (AActor* OwnerActor = Object->GetTypedOuter<AActor>())
-				{
-					CachedOwnerName = *OwnerActor->GetActorLabel();
-					OwnerFName = OwnerActor->GetFName();
-				}
-				else if (AActor* Actor = Cast<AActor>(Object))
-				{
-					CachedOwnerName = *Actor->GetActorLabel();
-					OwnerFName = Object->GetFName();
-				}
-				else
-				{
-					CachedOwnerName = Object->GetFName();
-					OwnerFName = Object->GetFName();
-				}
+				CachedOwnerPathName = *Owner->GetPathName();
+				CachedOwnerDisplayName = FText::FromString(UKismetSystemLibrary::GetDisplayName(Owner)); 
 			}
 			else
 			{
@@ -209,20 +202,20 @@ void SRCPanelExposedEntity::Initialize(const FGuid& InEntityId, URemoteControlPr
 				int32 PersistentLevelIndex = BindingPath.Find(PersistentLevelString);
 				if (PersistentLevelIndex != INDEX_NONE)
 				{
-					OwnerFName = *BindingPath.RightChop(PersistentLevelIndex + PersistentLevelString.Len());
-					CachedOwnerName = OwnerFName;
+					CachedOwnerPathName = *BindingPath.RightChop(PersistentLevelIndex + PersistentLevelString.Len());
+					CachedOwnerDisplayName = FText::FromName(CachedOwnerPathName);
 				}
 			}
-			
-			const int32 OwnerNameIndex = BindingPath.Find(OwnerFName.ToString() + TEXT("."));
+
+			const int32 OwnerNameIndex = BindingPath.Find(CachedOwnerPathName.ToString() + TEXT("."));
 			if (OwnerNameIndex != INDEX_NONE)
 			{
-				CachedSubobjectPath = *BindingPath.RightChop(OwnerNameIndex + OwnerFName.GetStringLength() + 1);
+				CachedSubobjectPath = *BindingPath.RightChop(OwnerNameIndex + CachedOwnerPathName.GetStringLength() + 1);
 			}
 
-			if (CachedOwnerName.IsNone())
+			if (CachedOwnerPathName.IsNone())
 			{
-				CachedOwnerName = *LOCTEXT("InvalidOwner", "Invalid Owner").ToString();
+				CachedOwnerPathName = *LOCTEXT("InvalidOwner", "Invalid Owner").ToString();
 			}
 		}
 	}
@@ -510,7 +503,7 @@ SRCPanelTreeNode::FMakeNodeWidgetArgs SRCPanelExposedEntity::CreateEntityWidgetI
 			[
 				SNew(STextBlock)
 				.ColorAndOpacity_Lambda([this]() { return bValidBinding ? FSlateColor::UseForeground() : FSlateColor::UseSubduedForeground(); })
-				.Text(FText::FromName(CachedOwnerName))
+				.Text(CachedOwnerDisplayName)
 				.ToolTipText(FText::FromString(CachedBindingPath.ToString() + SelectInOutliner.ToString()))
 			]
 		];
@@ -556,6 +549,8 @@ SRCPanelTreeNode::FMakeNodeWidgetArgs SRCPanelExposedEntity::CreateEntityWidgetI
 			.IsReadOnly_Lambda([this]() { return bLiveMode.Get(); })
 			.HighlightText_Lambda([this]() { return HighlightText.Get().ToString().Len() > 3 ? HighlightText.Get() : FText::GetEmpty(); })
 		];
+
+	Args.PropertyIdWidget = SNullWidget::NullWidget;
 
 	Args.ValueWidget = ValueWidget;
 

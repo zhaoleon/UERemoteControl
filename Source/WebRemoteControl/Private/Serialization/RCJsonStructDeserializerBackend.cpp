@@ -1,6 +1,6 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
-#include "WebRemoteControl/Public/Serialization/RCJsonStructDeserializerBackend.h"
+#include "Serialization/RCJsonStructDeserializerBackend.h"
 #include "IRemoteControlModule.h"
 #include "UObject/EnumProperty.h"
 #include "UObject/UnrealType.h"

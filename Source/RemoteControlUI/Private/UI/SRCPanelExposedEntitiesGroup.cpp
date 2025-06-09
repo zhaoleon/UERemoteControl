@@ -3,11 +3,15 @@
 #include "SRCPanelExposedEntitiesGroup.h"
 
 #include "RemoteControlPreset.h"
+#include "RemoteControlUIModule.h"
 #include "SRCPanelExposedField.h"
-#include "Widgets/Layout/SBox.h"
+#include "UI/IRCPanelExposedEntitiesGroupWidgetFactory.h"
 #include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Layout/SBox.h"
 
-void SRCPanelExposedEntitiesGroup::Construct(const FArguments& InArgs, EFieldGroupType InFieldGroupType, URemoteControlPreset* Preset)
+#define LOCTEXT_NAMESPACE "SRCPanelExposedEntitiesGroup"
+
+void SRCPanelExposedEntitiesGroup::Construct(const FArguments& InArgs, ERCFieldGroupType InFieldGroupType, URemoteControlPreset* Preset)
 {
 	FieldKey = InArgs._FieldKey;
 	GroupType = InFieldGroupType;
@@ -18,48 +22,70 @@ void SRCPanelExposedEntitiesGroup::Construct(const FArguments& InArgs, EFieldGro
 	MakeNodeWidget(Args);
 }
 
+TSharedRef<SWidget> SRCPanelExposedEntitiesGroup::GetWidget(const FName ForColumnName, const FName InActiveProtocol)
+{
+	const FRemoteControlUIModule& RemoteControlUIModule = FModuleManager::GetModuleChecked<FRemoteControlUIModule>("RemoteControlUI");
+	const TSharedRef<IRCPanelExposedEntitiesGroupWidgetFactory>* CustomFactoryPtr = RemoteControlUIModule.GetExposedEntitiesGroupWidgetFactory(ForColumnName, InActiveProtocol);
+	if (CustomFactoryPtr)
+	{
+		const FRCPanelExposedEntitiesGroupWidgetFactoryArgs Args(
+			PresetWeak,
+			GetChildProperties()
+		);
+
+		return (*CustomFactoryPtr)->MakeWidget(Args);
+	}
+	else
+	{
+		return SRCPanelTreeNode::GetWidget(ForColumnName, InActiveProtocol);
+	}
+}
+
 SRCPanelTreeNode::FMakeNodeWidgetArgs SRCPanelExposedEntitiesGroup::CreateNodeWidgetArgs()
 {
 	FMakeNodeWidgetArgs Args;
 
-	if (GroupType == EFieldGroupType::PropertyId)
-	{
-		Args.PropertyIdWidget = SNew(SBox)
+	Args.PropertyIdWidget = SNew(SBox)
 		[
 			SNew(SEditableTextBox)
-			.Justification(ETextJustify::Center)
+			.Justification(ETextJustify::Left)
 			.MinDesiredWidth(50.f)
 			.SelectAllTextWhenFocused(true)
 			.RevertTextOnEscape(true)
 			.ClearKeyboardFocusOnCommit(true)
-			.Text_Lambda([this] () { return FText::FromName(FieldKey); })
+			.Text_Lambda([this]{ return FText::FromName(PropertyIdName); })
 			.OnTextCommitted(this, &SRCPanelExposedEntitiesGroup::OnPropertyIdTextCommitted)
 		];
 
-		Args.OwnerNameWidget = SNullWidget::NullWidget;
-	}
-	else if (GroupType == EFieldGroupType::Owner)
-	{
-		Args.PropertyIdWidget = SNullWidget::NullWidget;
-		Args.OwnerNameWidget = SNew(SBox)
-			.HeightOverride(25)
-			.VAlign(VAlign_Center)
-			[
-				SNew(STextBlock)
-				.Text(FText::FromName(FieldKey))
-			];
-	}
-	else
-	{
-		Args.PropertyIdWidget = SNullWidget::NullWidget;
-		Args.OwnerNameWidget = SNullWidget::NullWidget;
-	}
-
-	Args.NameWidget = SNew(SBox).HeightOverride(25).VAlign(VAlign_Center)
+	Args.OwnerNameWidget = SNew(SBox)
+		.HeightOverride(25)
+		.VAlign(VAlign_Center)
 		[
 			SNew(STextBlock)
-			.Text(FText::FromString("Group"))
+			.Text_Lambda([this]{ return OwnerDisplayName; })
 		];
+
+	FText GroupText;
+
+	switch (GroupType)
+	{
+	case ERCFieldGroupType::PropertyId:
+		GroupText = LOCTEXT("GroupPropertyId", "Group by Id");
+		break;
+
+	case ERCFieldGroupType::Owner:
+		GroupText = LOCTEXT("GroupOwner", "Group by Owner");
+		break;
+	}
+
+	Args.NameWidget = SNew(SBox)
+		.HeightOverride(25)
+		.VAlign(VAlign_Center)
+		[
+			SNew(STextBlock)
+			.Text(GroupText)
+		];
+
 	Args.SubObjectPathWidget = SNullWidget::NullWidget;
 	Args.ValueWidget = SNullWidget::NullWidget;
 	Args.ResetButton = SNullWidget::NullWidget;
@@ -83,6 +109,7 @@ void SRCPanelExposedEntitiesGroup::OnPropertyIdTextCommitted(const FText& InText
 
 	URemoteControlPreset* Preset = PresetWeak.Get();
 	FieldKey = NewId;
+
 	for (const TSharedPtr<SRCPanelTreeNode>& Child : ChildWidgets)
 	{
 		TWeakPtr<FRemoteControlField> ExposedField = Preset->GetExposedEntity<FRemoteControlField>(Child->GetRCId());
@@ -93,35 +120,47 @@ void SRCPanelExposedEntitiesGroup::OnPropertyIdTextCommitted(const FText& InText
 			Preset->UpdateIdentifiedField(ExposedField.Pin().ToSharedRef());
 		}
 	}
-	
+
 	OnGroupPropertyIdChangedDelegate.ExecuteIfBound();
 }
 
 void SRCPanelExposedEntitiesGroup::AssignChildren(const TArray<TSharedPtr<SRCPanelTreeNode>>& InFieldEntities)
 {
 	ChildWidgets.Empty();
-	if (GroupType == EFieldGroupType::PropertyId)
+
+	OwnerDisplayName = FText::GetEmpty();
+	PropertyIdName = NAME_None;
+
+	for (const TSharedPtr<SRCPanelTreeNode>& Entity : InFieldEntities)
 	{
-		for (const TSharedPtr<SRCPanelTreeNode>& Entity : InFieldEntities)
+		if (const TSharedPtr<SRCPanelExposedField> ExposedField = StaticCastSharedPtr<SRCPanelExposedField>(Entity))
 		{
-			if (const TSharedPtr<SRCPanelExposedField> ExposedField = StaticCastSharedPtr<SRCPanelExposedField>(Entity))
+			const FName FieldPropertyId = ExposedField->GetPropertyId();
+
+			const bool bOwnerMatch = GroupType == ERCFieldGroupType::Owner && ExposedField->GetOwnerPathName() == FieldKey;
+			const bool bPropertyIdMatch = GroupType == ERCFieldGroupType::PropertyId && FieldPropertyId == FieldKey;
+
+			if (bOwnerMatch || bPropertyIdMatch)
 			{
-				if (ExposedField->GetPropertyId() == FieldKey)
+				ChildWidgets.Add(Entity);
+
+				const FText FieldOwnerDisplayName = ExposedField->GetOwnerDisplayName();
+				if (OwnerDisplayName.IsEmpty())
 				{
-					ChildWidgets.Add(Entity);
+					OwnerDisplayName = FieldOwnerDisplayName;
 				}
-			}
-		}
-	}
-	else if (GroupType == EFieldGroupType::Owner)
-	{
-		for (const TSharedPtr<SRCPanelTreeNode>& Entity : InFieldEntities)
-		{
-			if (const TSharedPtr<SRCPanelExposedField> ExposedField = StaticCastSharedPtr<SRCPanelExposedField>(Entity))
-			{
-				if (ExposedField->GetOwnerName() == FieldKey)
+				else if (!OwnerDisplayName.EqualTo(FieldOwnerDisplayName))
 				{
-					ChildWidgets.Add(Entity);
+					OwnerDisplayName = LOCTEXT("MultipleValues", "Multiple Values");
+				}
+
+				if (PropertyIdName == NAME_None)
+				{
+					PropertyIdName = FieldPropertyId;
+				}
+				else if (PropertyIdName != FieldPropertyId)
+				{
+					PropertyIdName = TEXT("Multiple Values");
 				}
 			}
 		}
@@ -133,3 +172,29 @@ void SRCPanelExposedEntitiesGroup::GetNodeChildren(TArray<TSharedPtr<SRCPanelTre
 	OutChildren.Append(ChildWidgets);
 	SRCPanelTreeNode::GetNodeChildren(OutChildren);
 }
+
+TArray<TSharedRef<FRemoteControlProperty>> SRCPanelExposedEntitiesGroup::GetChildProperties() const
+{
+	URemoteControlPreset* Preset = PresetWeak.Get();
+	if (!Preset)
+	{
+		return {};
+	}
+
+	TArray<TSharedPtr<SRCPanelTreeNode>> Children;
+	GetNodeChildren(Children);
+
+	TArray<TSharedRef<FRemoteControlProperty>> ChildProperties;
+	for (const TSharedPtr<SRCPanelTreeNode>& Child : Children)
+	{
+		const TWeakPtr<FRemoteControlProperty> WeakProperty = Child.IsValid() ? Preset->GetExposedEntity<FRemoteControlProperty>(Child->GetRCId()) : nullptr;
+		if (WeakProperty.IsValid())
+		{
+			ChildProperties.Add(WeakProperty.Pin().ToSharedRef());
+		}
+	}
+
+	return ChildProperties;
+}
+
+#undef LOCTEXT_NAMESPACE

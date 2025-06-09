@@ -13,7 +13,7 @@
 #include "IRemoteControlModule.h"
 #include "RemoteControlDeltaAPITestData.h"
 
-BEGIN_DEFINE_SPEC(FRemoteControlDeltaAPISpec, "Plugins.RemoteControl.DeltaAPI", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter | EAutomationTestFlags::ApplicationContextMask)
+BEGIN_DEFINE_SPEC(FRemoteControlDeltaAPISpec, "Plugins.RemoteControl.DeltaAPI", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter | EAutomationTestFlags_ApplicationContextMask)
 
 URemoteControlDeltaAPITestObject* TestObject;
 
@@ -35,7 +35,7 @@ void ResetTestObject();
 /**
  * Apply an operation to a property by calling IRemoteControlModule::SetObjectProperties.
  * 
- * @param Proprety The property to modify on TestObject.
+ * @param Property The property to modify on TestObject.
  * @param Operation The operation to apply to the property.
  * @param bIncludeInterceptPayload If true, JsonBuffer will be passed as the InPayload argument of SetObjectProperties. Otherwise, an empty array will be passed.
  */

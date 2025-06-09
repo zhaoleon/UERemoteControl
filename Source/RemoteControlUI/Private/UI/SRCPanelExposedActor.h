@@ -25,6 +25,7 @@ struct SRCPanelExposedActor : public SRCPanelExposedEntity
 		: _LiveMode(false)
 	{}
 		SLATE_ATTRIBUTE(bool, LiveMode)
+		SLATE_ARGUMENT(TSharedPtr<FUICommandList>, CommandList)
 	SLATE_END_ARGS()
 
 	static TSharedPtr<SRCPanelTreeNode> MakeInstance(const FGenerateWidgetArgs& Args);

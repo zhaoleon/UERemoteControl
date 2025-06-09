@@ -5,6 +5,8 @@
 #include "Behaviour/RCBehaviourNode.h"
 #include "Engine/Blueprint.h"
 #include "Engine/BlueprintGeneratedClass.h"
+#include "Modules/ModuleManager.h"
+#include "PropertyEditorModule.h"
 #include "Styling/RemoteControlStyles.h"
 #include "UI/Action/RCActionModel.h"
 #include "UI/Action/SRCActionPanel.h"
@@ -12,6 +14,7 @@
 #include "UI/BaseLogicUI/RCLogicHelpers.h"
 #include "UI/RemoteControlPanelStyle.h"
 #include "UI/SRemoteControlPanel.h"
+#include "Widgets/Layout/SBox.h"
 #include "Widgets/SNullWidget.h"
 #include "Widgets/Text/STextBlock.h"
 
@@ -24,15 +27,28 @@ FRCBehaviourModel::FRCBehaviourModel(URCBehaviour* InBehaviour
 {
 	RCPanelStyle = &FRemoteControlPanelStyle::Get()->GetWidgetStyle<FRCPanelStyle>("RemoteControlPanel.BehaviourPanel");
 
-	if (BehaviourWeakPtr.IsValid())
+	if (InBehaviour)
 	{
-		const FText BehaviourDisplayName = BehaviourWeakPtr->GetDisplayName();
-		
+		// Determine whether the behavior node has any property that is instance-editable
+		if (InBehaviour->BehaviourNodeClass)
+		{
+			for (FProperty* Property : TFieldRange<FProperty>(InBehaviour->BehaviourNodeClass))
+			{
+				if (Property->HasAllPropertyFlags(CPF_Edit) && !Property->HasAnyPropertyFlags(CPF_DisableEditOnInstance))
+				{
+					bDetailsEditableBehavior = true;
+					break;
+				}
+			}
+		}
+
+		const FText BehaviourDisplayName = InBehaviour->GetDisplayName();
+
 		SAssignNew(BehaviourTitleText, STextBlock)
 			.Text(BehaviourDisplayName)
 			.TextStyle(&RCPanelStyle->HeaderTextStyle);
 
-		RefreshIsBehaviourEnabled(BehaviourWeakPtr->bIsEnabled);
+		RefreshIsBehaviourEnabled(InBehaviour->bIsEnabled);
 	}
 }
 
@@ -93,12 +109,50 @@ TSharedRef<SWidget> FRCBehaviourModel::GetWidget() const
 
 bool FRCBehaviourModel::HasBehaviourDetailsWidget()
 {
-	return false;
+	return bDetailsEditableBehavior;
 }
 
 TSharedRef<SWidget> FRCBehaviourModel::GetBehaviourDetailsWidget()
 {
-	return SNullWidget::NullWidget;
+	if (!bDetailsEditableBehavior)
+	{
+		return SNullWidget::NullWidget;
+	}
+
+	URCBehaviour* Behavior = BehaviourWeakPtr.Get();
+	if (!Behavior)
+	{
+		return SNullWidget::NullWidget;
+	}
+
+	URCBehaviourNode* BehaviorNode = Behavior->GetBehaviourNode();
+	if (!BehaviorNode)
+	{
+		return SNullWidget::NullWidget;
+	}
+
+	FDetailsViewArgs DetailsViewArgs;
+	DetailsViewArgs.DefaultsOnlyVisibility = EEditDefaultsOnlyNodeVisibility::Automatic;
+	DetailsViewArgs.bAllowSearch = false;
+	DetailsViewArgs.bAllowFavoriteSystem = false;
+	DetailsViewArgs.bHideSelectionTip = true;
+	DetailsViewArgs.bLockable = false;
+	DetailsViewArgs.bSearchInitialKeyFocus = true;
+	DetailsViewArgs.bUpdatesFromSelection = false;
+	DetailsViewArgs.bShowOptions = false;
+	DetailsViewArgs.bShowObjectLabel = false;
+	DetailsViewArgs.bShowScrollBar = true;
+
+	FPropertyEditorModule& PropertyEditorModule = FModuleManager::Get().LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
+
+	TSharedRef<IDetailsView> DetailsView = PropertyEditorModule.CreateDetailView(DetailsViewArgs);
+	DetailsView->SetObject(BehaviorNode);
+
+	return SNew(SBox)
+		.MaxDesiredHeight(200.f)
+		[
+			DetailsView
+		];
 }
 
 void FRCBehaviourModel::OnOverrideBlueprint() const
@@ -146,6 +200,15 @@ TSharedPtr<SRCLogicPanelListBase> FRCBehaviourModel::GetActionsListWidget(TShare
 	// Returns the default Actions List; child classes can override as required
 
 	return SNew(SRCActionPanelList<FRCActionModel>, InActionPanel, SharedThis(this));
+}
+
+bool FRCBehaviourModel::SupportPropertyId() const
+{
+	if (const URCBehaviour* Behavior = BehaviourWeakPtr.Get())
+	{
+		return Behavior->SupportPropertyId();
+	}
+	return false;
 }
 
 URCBehaviour* FRCBehaviourModel::GetBehaviour() const

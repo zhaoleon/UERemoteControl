@@ -85,6 +85,14 @@ void SRCControllerPanel::Construct(const FArguments& InArgs, const TSharedRef<SR
 		];
 }
 
+void SRCControllerPanel::Refresh()
+{
+	if (ControllerPanelList.IsValid())
+	{
+		ControllerPanelList->Reset();
+	}
+}
+
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 SRCControllerPanel::FRCControllerPropertyInfo SRCControllerPanel::GetPropertyInfoForCustomType(const FName& InType)
@@ -227,6 +235,15 @@ TArray<TSharedPtr<FRCLogicModeBase>> SRCControllerPanel::GetSelectedLogicItems()
 	}
 
 	return {};
+}
+
+int32 SRCControllerPanel::NumControllerItems() const
+{
+	if (ControllerPanelList.IsValid())
+	{
+		return ControllerPanelList->NumControllerItems();
+	}
+	return INDEX_NONE;
 }
 
 void SRCControllerPanel::DuplicateController(URCController* InController)

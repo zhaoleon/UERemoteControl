@@ -8,8 +8,11 @@ class FRCActionModel;
 class FRCBehaviourModel;
 class SBox;
 class SCheckBox;
+class SComboButton;
 class SRCBehaviourDetails;
 class SRCLogicPanelListBase;
+class SRCMajorPanel;
+class SRCMinorPanel;
 class SRemoteControlPanel;
 class URCAction;
 class URCBehaviour;
@@ -79,11 +82,6 @@ public:
 	/** Whether this Actions panel can create an action for the given remote control field */
 	bool CanHaveActionForField(const FGuid& InRemoteControlFieldId);
 
-	void RequestRefreshForAddActionsMenu()
-	{
-		bAddActionMenuNeedsRefresh = true;
-	}
-
 	/** Set the Enabled state of our parent Behaviour */
 	void SetIsBehaviourEnabled(const bool bIsEnabled);
 
@@ -125,6 +123,12 @@ private:
 	 */
 	TSharedRef<SWidget> GetActionMenuContentWidget();
 
+	/** Check the validity of the panel widgets and if not valid will create them */
+	void CreateActionPanelWidgets();
+
+	/** Return whether or not all panel widgets are valid */
+	bool AreActionPanelWidgetsValid() const;
+
 	/** Handles click event for Add Action button*/
 	void OnAddActionClicked(TSharedPtr<FRemoteControlField> InRemoteControlField);
 
@@ -143,15 +147,9 @@ private:
 	/** Handles click event for Add All Selected button; Adds all selected actions for the active Remote Control Preset*/
 	FReply OnAddAllSelectedFields();
 
-	/** Event invoked when a new remote control field has been added to the Remote Control Preset associated with this Action panel */
-	void OnRemoteControlFieldAdded(const FGuid& GroupId, const FGuid& FieldId, int32 FieldPosition);
-
-	/** Event invoked when a remote control field is removed from the Remote Control Preset associated with this Action panel */
-	void OnRemoteControlFieldDeleted(const FGuid& GroupId, const FGuid& FieldId, int32 FieldPosition);
-
 private:
 	/** Helper widget for behavior details. */
-	static TSharedRef<SBox> CreateNoneSelectedWidget();
+	static TSharedRef<SBox> GetNoneSelectedWidget();
 
 	void DuplicateAction(URCAction* InAction);
 
@@ -172,9 +170,21 @@ private:
 	/** Panel Style reference. */
 	const FRCPanelStyle* RCPanelStyle = nullptr;
 
-	/** Cached menu widget for Add New Action */
-	TSharedPtr<SWidget> AddNewActionMenuWidget;
+	/** Action Minor Panel */
+	TSharedPtr<SRCMinorPanel> ActionDockPanel;
 
-	/** Whether the Add Actions menu list is outdated and needs to be refreshed */
-	bool bAddActionMenuNeedsRefresh = false;
+	/** ComboButton to add new action */
+	TSharedPtr<SComboButton> AddNewActionButton;
+
+	/** Add all actions button */
+	TSharedPtr<SWidget> AddAllActionsButton;
+
+	/** Add all selected actions button */
+	TSharedPtr<SWidget> AddAllSelectedActionsButton;
+
+	/** Action Major Panel */
+	TSharedPtr<SRCMajorPanel> ActionsPanel;
+
+	/** Behavior Details Minor Panel */
+	TSharedPtr<SRCMinorPanel> BehaviorDetailsPanel;
 };

@@ -2,7 +2,7 @@
  
 #pragma once
 
-#include "PropertyBag.h"
+#include "StructUtils/PropertyBag.h"
 #include "UObject/Object.h"
  
 #include "RCVirtualProperty.generated.h"
@@ -69,13 +69,23 @@ public:
 	/** Return property bag property type */
 	EPropertyBagPropertyType GetValueType() const;
 
-	/** Get Metadata from the internal PropertyBag */
+	/**
+	 * Get the meta-data matching the given key.
+	 * NOTE: This meta-data is available at runtime and is different from the property bag property's meta-data
+	 * @return the value mapped to the key
+	 */
 	FString GetMetadataValue(FName Key) const;
 
-	/** Add/Set Metadata into the internal PropertyBag */
+	/**
+	 * Adds/sets the meta-data with the given key and value.
+	 * NOTE: This meta-data is available at runtime and is different from the property bag property's meta-data
+	 */
 	void SetMetadataValue(FName Key, FString Data);
 
-	/** Remove Metadata from the internal PropertyBag */
+	/**
+	 * Removes the meta-data matching the given key.
+	 * NOTE: This meta-data is available at runtime and is different from the property bag property's meta-data
+	 */
 	void RemoveMetadataValue(FName Key);
 
 	/** Return pointer to object that defines the Enum, Struct, or Class. */

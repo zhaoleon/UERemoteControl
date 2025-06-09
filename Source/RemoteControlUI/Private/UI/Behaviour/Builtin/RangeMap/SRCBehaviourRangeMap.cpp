@@ -20,6 +20,7 @@ void SRCBehaviourRangeMap::Construct(const FArguments& InArgs, TSharedRef<const 
 	RangeMapBehaviourItemWeakPtr = InBehaviourItem;
 
 	ChildSlot
+	.Padding(8.f, 4.f)
 	[
 		SNew(SHorizontalBox)
 

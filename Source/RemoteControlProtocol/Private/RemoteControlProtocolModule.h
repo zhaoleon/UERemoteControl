@@ -24,6 +24,8 @@ public:
 	virtual void RemoveProtocol(FName InProtocolName, TSharedRef<IRemoteControlProtocol> InProtocol) override;
 	virtual void EmptyProtocols() override;
 	virtual bool IsRCProtocolsDisable() const override { return bRCProtocolsDisable; };
+	virtual void ApplyProtocolBindings(URemoteControlPreset* InPreset) const override;
+	virtual void UnapplyProtocolBindings(URemoteControlPreset* InPreset) const override;
 	//~ End IRemoteControlProtocolModule interface
 
 private:

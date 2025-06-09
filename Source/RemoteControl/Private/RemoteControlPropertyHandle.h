@@ -624,9 +624,6 @@ public:
 
 	/** Set a Material value using the handled Object */
 	bool SetMaterialValue(UObject* InValue, int32 InIndex) const;
-
-	/** Set Object Value */
-	bool SetObjectValue(UObject* InValue) const;
 };
 
 #undef DECLARE_PROPERTY_ACCESSOR_CONSTRUCTOR

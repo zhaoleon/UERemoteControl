@@ -1,6 +1,6 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
-#include "WebRemoteControl/Public/Serialization/RCJsonStructSerializerBackend.h"
+#include "Serialization/RCJsonStructSerializerBackend.h"
 #include "UObject/EnumProperty.h"
 #include <limits>
 
